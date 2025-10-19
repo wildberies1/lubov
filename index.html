@@ -6,8 +6,6 @@
   <title>Касса — Аптека «Любовь»</title>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <!-- QR Code Generator -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background: #f0f4f8; color: #2c3e50; padding: 12px; }
@@ -19,14 +17,14 @@
       display: flex; gap: 10px; margin-bottom: 16px;
       flex-wrap: wrap;
     }
-    input, button, select { padding: 10px; font-size: 16px; border: 1px solid #bdc3c7; border-radius: 4px; }
+    input, button { padding: 10px; font-size: 16px; border: 1px solid #bdc3c7; border-radius: 4px; }
     input { flex: 1; min-width: 220px; }
     button { cursor: pointer; background: #3498db; color: white; border: none; }
     button:hover { background: #2980b9; }
     button.alt { background: #9b59b6; }
     button.f2 { background: #2ecc71; }
-    button.loyalty { background: #f39c12; }
     button.card { background: #e74c3c; }
+    button.qr { background: #1abc9c; }
     .cart {
       background: white; border: 1px solid #ecf0f1; border-radius: 6px;
       padding: 12px; margin-bottom: 16px; max-height: 320px; overflow-y: auto;
@@ -43,7 +41,7 @@
     .actions {
       display: flex; gap: 10px; flex-wrap: wrap;
     }
-    .actions button { flex: 1; min-width: 130px; }
+    .actions button { flex: 1; min-width: 120px; }
     .price-check {
       margin-top: 10px; padding: 10px; background: #fff9c4; border-left: 4px solid #fbc02d;
       display: none; font-weight: bold;
@@ -52,8 +50,15 @@
       margin-top: 16px; text-align: center; padding: 12px; background: white;
       border-radius: 6px; display: none;
     }
-    .barcode-display img, .qr-display canvas {
+    .barcode-display img, .qr-display img {
       max-width: 100%; height: auto;
+      image-rendering: pixelated;
+    }
+    .receipt {
+      background: white; padding: 20px; border: 1px solid #333; border-radius: 8px;
+      font-family: monospace; font-size: 14px; white-space: pre-line;
+      max-width: 500px; margin: 20px auto; display: none;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     }
     .modal {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -63,20 +68,10 @@
     .modal-content {
       background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto;
     }
-    .receipt {
-      background: white; padding: 20px; border: 1px solid #ccc; border-radius: 8px;
-      font-family: monospace; font-size: 14px; white-space: pre-line;
-      max-width: 500px; margin: 20px auto; display: none;
+    .product-item {
+      padding: 8px; border-bottom: 1px solid #eee; cursor: pointer;
     }
-    .online-order, .loyalty-section, .archive-section, .search-results {
-      margin-top: 20px; padding: 16px; border-radius: 6px; display: none;
-    }
-    .online-order { border: 1px dashed #8e44ad; background: #f9f0ff; }
-    .loyalty-section { border: 1px solid #f39c12; background: #fff8e1; }
-    .archive-section { border: 1px solid #16a085; background: #e8f5f2; }
-    .search-results { border: 1px solid #3498db; background: #ebf5fb; }
-    .search-results div { padding: 6px; cursor: pointer; border-bottom: 1px solid #d6eaf8; }
-    .search-results div:hover { background: #d6eaf8; }
+    .product-item:hover { background: #f0f8ff; }
     @media (max-width: 600px) {
       .input-area, .actions { flex-direction: column; }
       button { width: 100%; }
@@ -96,7 +91,6 @@
       <button class="alt" id="priceCheckBtn">Цена (Alt)</button>
     </div>
 
-    <div class="search-results" id="searchResults"></div>
     <div class="price-check" id="priceCheck">Цена: <span id="priceValue"></span> руб.</div>
 
     <div class="cart" id="cart">
@@ -105,21 +99,24 @@
 
     <div class="total">
       Итого: <span id="totalAmount">0</span> руб.
-      <br><small id="loyaltyBonus">Бонусы: 0</small>
     </div>
 
     <div class="actions">
       <button id="cancelItem">Отменить товар</button>
       <button class="card" id="cardPaymentBtn">Оплата картой</button>
-      <button id="qrPaymentBtn">Оплата по QR</button>
+      <button class="qr" id="qrPaymentBtn">Оплата по QR</button>
       <button class="f2" id="generateBarcodeBtn">Создать штрихкод (F2)</button>
-      <button class="loyalty" id="loyaltyBtn">Лояльность</button>
-      <button id="archiveBtn">Архив</button>
+    </div>
+
+    <div class="barcode-display" id="barcodeDisplay">
+      <h4>Штрихкод для сканирования</h4>
+      <img id="barcodeImage" src="" alt="Штрихкод" />
+      <p id="barcodeCode"></p>
     </div>
 
     <div class="qr-display" id="qrDisplay">
       <h4>Оплатите по QR-коду</h4>
-      <canvas id="qrcodeCanvas"></canvas>
+      <img id="qrImage" src="" alt="QR для оплаты" />
       <p>Сканируйте камерой телефона</p>
     </div>
 
@@ -129,38 +126,14 @@
   <!-- Модальное окно выбора препарата -->
   <div class="modal" id="productSelectModal">
     <div class="modal-content">
-      <h3>Выберите препарат для генерации штрихкода</h3>
-      <input type="text" id="productSearchModal" placeholder="Поиск по названию..." style="width:100%; margin-bottom:10px;" />
+      <h3>Выберите препарат</h3>
+      <input type="text" id="productSearchModal" placeholder="Поиск..." style="width:100%; margin-bottom:10px;" />
       <div id="productListModal"></div>
     </div>
   </div>
 
-  <!-- Формы -->
-  <div class="online-order" id="onlineOrderForm">
-    <h3>Онлайн-заказ</h3>
-    <input type="text" id="clientName" placeholder="ФИО клиента" />
-    <input type="tel" id="clientPhone" placeholder="Телефон (+7...)" />
-    <textarea id="orderItems" placeholder="Список препаратов"></textarea>
-    <button id="submitOrder">Отправить заказ</button>
-    <div class="status" id="orderStatus"></div>
-  </div>
-
-  <div class="loyalty-section" id="loyaltyForm">
-    <h3>Карта лояльности</h3>
-    <input type="tel" id="loyaltyPhone" placeholder="Телефон (+7...)" />
-    <button id="checkLoyalty">Проверить карту</button>
-    <div id="loyaltyInfo" style="margin-top:10px;"></div>
-  </div>
-
-  <div class="archive-section" id="archiveForm">
-    <h3>Архив заказов и чеков</h3>
-    <input type="text" id="archiveQuery" placeholder="ФИО, телефон или дата" />
-    <button id="searchArchive">Найти</button>
-    <div id="archiveResults" style="margin-top:10px; max-height:300px; overflow-y:auto;"></div>
-  </div>
-
   <script>
-    // === Firebase Init ===
+    // === Firebase (замените на свой) ===
     const firebaseConfig = {
       databaseURL: "https://apteka-lyubov-default-rtdb.firebaseio.com/"
     };
@@ -172,7 +145,7 @@
       console.warn("Firebase не инициализирован");
     }
 
-    // === Генерация EAN-13 ===
+    // === Генерация валидного EAN-13 ===
     function generateEAN13(prefix = "2000000") {
       let base = prefix + String(Math.floor(Math.random() * 100000)).padStart(5, '0');
       let sum = 0;
@@ -186,7 +159,7 @@
 
     // === Каталог 520 препаратов ===
     function generatePharmacyCatalog(count = 520) {
-      const names = ["Парацетамол","Ибупрофен","Аспирин","Но-шпа","Супрастин","Цетрин","Лоратадин","Омез","Альмагель","Энтеросгель","Анальгин","Диазолин","Фуросемид","Каптоприл","Метопролол","Амлодипин","Витамин C","Витамин D3","Магний B6","Глицин","Корвалол","Валокордин","Нитроглицерин","Спазган","Кетанов","Нурофен","Терафлю","Колдрекс","Аугментин","Амоксициллин","Азитромицин","Ципрофлоксацин","Флуконазол","Нистатин","Линекс","Хилак Форте","Мезим","Панкреатин","Эспумизан","Дюфалак","Лактулоза","Афобазол","Фенибут","Пантогам","Глицин форте","Мексидол","Пирацетам","Церебролизин","Актовегин","Кавинтон","Бетасерк","Винпоцетин","Танакан","Гинкоум","Циннаризин","Нейромидин","Артра","Терафлекс","Дона","Хондроитин","Глюкозамин","Мовалис","Диклофенак","Мелоксикам","Нимесулид","Ксефокам","Баралгин","Спазмалгон","Темпалгин"];
+      const names = ["Парацетамол","Ибупрофен","Аспирин","Но-шпа","Супрастин","Цетрин","Лоратадин","Омез","Альмагель","Энтеросгель","Анальгин","Диазолин","Фуросемид","Каптоприл","Метопролол","Амлодипин","Витамин C","Витамин D3","Магний B6","Глицин","Корвалол","Валокордин","Нитроглицерин","Спазган","Кетанов","Нурофен","Терафлю","Колдрекс","Аугментин","Амоксициллин","Азитромицин","Ципрофлоксацин","Флуконазол","Нистатин","Линекс","Хилак Форте","Мезим","Панкреатин","Эспумизан","Дюфалак","Лактулоза"];
       const catalog = {};
       for (let i = 0; i < count; i++) {
         const name = names[Math.floor(Math.random() * names.length)] + " №" + (i + 1);
@@ -200,283 +173,217 @@
     // === State ===
     let CATALOG = generatePharmacyCatalog(520);
     let cart = [];
-    let currentUser = null;
 
     // === DOM ===
     const mainInput = document.getElementById('mainInput');
-    const searchResults = document.getElementById('searchResults');
     const cartEl = document.getElementById('cart');
     const totalEl = document.getElementById('totalAmount');
-    const loyaltyBonusEl = document.getElementById('loyaltyBonus');
     const priceCheckEl = document.getElementById('priceCheck');
     const priceValueEl = document.getElementById('priceValue');
+    const barcodeDisplay = document.getElementById('barcodeDisplay');
+    const barcodeImage = document.getElementById('barcodeImage');
+    const barcodeCode = document.getElementById('barcodeCode');
     const qrDisplay = document.getElementById('qrDisplay');
+    const qrImage = document.getElementById('qrImage');
     const receiptEl = document.getElementById('receipt');
     const productSelectModal = document.getElementById('productSelectModal');
     const productListModal = document.getElementById('productListModal');
     const productSearchModal = document.getElementById('productSearchModal');
-    const onlineOrderForm = document.getElementById('onlineOrderForm');
-    const loyaltyForm = document.getElementById('loyaltyForm');
-    const archiveForm = document.getElementById('archiveForm');
 
-    // === URL параметры (для QR-оплаты) ===
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('payment') === 'qr') {
-      showQrPaymentPage();
+    // === Инициализация ===
+    console.log("Каталог загружен:", Object.keys(CATALOG).length, "препаратов");
+    updateCart();
+
+    // === Обновление корзины ===
+    function updateCart() {
+      if (cart.length === 0) {
+        cartEl.innerHTML = '<p>Корзина пуста</p>';
+        totalEl.textContent = '0';
+        return;
+      }
+      cartEl.innerHTML = '';
+      let total = 0;
+      cart.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'cart-item';
+        div.innerHTML = `<span>${item.name} (${item.code})</span><span>${item.price} ₽</span>`;
+        cartEl.appendChild(div);
+        total += item.price;
+      });
+      totalEl.textContent = total;
     }
 
-    // === Показ страницы оплаты по QR ===
-    function showQrPaymentPage() {
-      document.querySelector('.container').style.display = 'none';
-      document.querySelectorAll('.modal, .online-order, .loyalty-section, .archive-section').forEach(el => el.style.display = 'none');
-
-      const total = urlParams.get('total');
-      const items = decodeURIComponent(urlParams.get('items') || '');
-
-      const paymentDiv = document.createElement('div');
-      paymentDiv.style.textAlign = 'center';
-      paymentDiv.style.padding = '30px';
-      paymentDiv.innerHTML = `
-        <h2>Оплата по QR</h2>
-        <p>Сумма: <strong>${total} ₽</strong></p>
-        <p>Товары: ${items}</p>
-        <button id="confirmQrPayment" style="padding:12px 30px; font-size:18px; margin-top:20px; background:#2ecc71; color:white; border:none; border-radius:6px;">Оплатить</button>
-        <div id="qrReceipt" class="receipt" style="display:none; margin-top:20px;"></div>
-      `;
-      document.body.appendChild(paymentDiv);
-
-      document.getElementById('confirmQrPayment').onclick = () => {
-        const receiptText = generateReceiptText(total, items.split(','));
-        document.getElementById('qrReceipt').textContent = receiptText;
-        document.getElementById('qrReceipt').style.display = 'block';
-        document.getElementById('confirmQrPayment').style.display = 'none';
-
-        // Сохранить в Firebase
-        if (db) {
-          db.ref('receipts').push({
-            items: items.split(','),
-            total: parseFloat(total),
-            method: 'qr',
-            timestamp: firebase.database.ServerValue.TIMESTAMP
-          });
-        }
-      };
+    // === Добавление в корзину ===
+    function addToCart(code) {
+      if (!CATALOG[code]) {
+        alert(`Товар с штрихкодом ${code} не найден`);
+        return;
+      }
+      cart.push({ code, ...CATALOG[code] });
+      updateCart();
+      mainInput.value = '';
     }
 
-    // === Генерация текста чека ===
-    function generateReceiptText(total, items) {
+    // === Генерация изображения штрихкода (EAN-13) ===
+    function generateBarcodeImage(code) {
+      // Используем бесплатный API для генерации изображения штрихкода
+      const url = `https://barcode.tec-it.com/barcode.ashx?data=${code}&code=EAN13&translate-esc=on&unit=Fit&dpi=96`;
+      barcodeImage.src = url;
+      barcodeCode.textContent = `Код: ${code}`;
+      barcodeDisplay.style.display = 'block';
+      qrDisplay.style.display = 'none';
+    }
+
+    // === Генерация QR для оплаты ===
+    function generateQrForPayment(total) {
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=Оплата в аптеке Любовь. Сумма: ${total} руб.`;
+      qrImage.src = qrUrl;
+      qrDisplay.style.display = 'block';
+      barcodeDisplay.style.display = 'none';
+    }
+
+    // === Генерация чека ===
+    function generateReceipt(total) {
       const date = new Date().toLocaleString('ru-RU');
       let lines = [];
       lines.push("АПТЕКА «ЛЮБОВЬ»");
       lines.push("ИНН: 7701234567");
       lines.push("г. Москва, ул. Здоровья, д. 10");
-      lines.push("================================");
+      lines.push("=".repeat(32));
       lines.push("Товары:");
-      items.forEach(item => {
-        if (item.trim()) lines.push(`- ${item.trim()}`);
+      cart.forEach(item => {
+        lines.push(`${item.name.padEnd(20)} ${item.price} ₽`);
       });
-      lines.push("================================");
+      lines.push("=".repeat(32));
       lines.push(`ИТОГО: ${total} ₽`);
       lines.push(`Дата: ${date}`);
       lines.push("СПАСИБО ЗА ПОКУПКУ!");
       return lines.join('\n');
     }
 
-    // === Инициализация основного интерфейса ===
-    if (!urlParams.has('payment')) {
-      console.log("Каталог загружен:", Object.keys(CATALOG).length, "препаратов");
-      updateCart();
-
-      // === Обработка Enter после сканирования ===
-      mainInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          const val = mainInput.value.trim();
-          if (val.length === 13 && /^\d+$/.test(val)) {
-            addToCart(val);
-          } else if (val.length > 0) {
-            alert('Для добавления в корзину по Enter введите ровно 13 цифр');
-          }
-        }
-      });
-
-      // === Поиск по названию ===
-      mainInput.addEventListener('input', () => {
-        const query = mainInput.value.trim().toLowerCase();
-        if (query.length < 2 || /^\d+$/.test(query)) {
-          searchResults.style.display = 'none';
-          return;
-        }
-        const results = [];
-        for (const [code, prod] of Object.entries(CATALOG)) {
-          if (prod.name.toLowerCase().includes(query)) {
-            results.push({ code, ...prod });
-            if (results.length >= 10) break;
-          }
-        }
-        if (results.length > 0) {
-          searchResults.innerHTML = '';
-          results.forEach(item => {
-            const div = document.createElement('div');
-            div.textContent = `${item.name} — ${item.price} ₽ [${item.code}]`;
-            div.onclick = () => {
-              addToCart(item.code);
-              searchResults.style.display = 'none';
-            };
-            searchResults.appendChild(div);
-          });
-          searchResults.style.display = 'block';
-        } else {
-          searchResults.style.display = 'none';
-        }
-      });
-
-      // === Кнопки оплаты ===
-      document.getElementById('cardPaymentBtn').addEventListener('click', () => {
-        if (cart.length === 0) return alert('Корзина пуста');
-        if (confirm('Подтвердить оплату картой?')) {
-          const total = parseFloat(totalEl.textContent);
-          const items = cart.map(i => i.name).join(', ');
-          const receiptText = generateReceiptText(total, cart.map(i => i.name));
-          receiptEl.textContent = receiptText;
-          receiptEl.style.display = 'block';
-          qrDisplay.style.display = 'none';
-
-          if (db) {
-            db.ref('receipts').push({
-              items: cart,
-              total,
-              method: 'card',
-              timestamp: firebase.database.ServerValue.TIMESTAMP
-            });
-          }
-          cart = [];
-          updateCart();
-        }
-      });
-
-      document.getElementById('qrPaymentBtn').addEventListener('click', () => {
-        if (cart.length === 0) return alert('Корзина пуста');
-        const total = parseFloat(totalEl.textContent);
-        const items = cart.map(i => i.name).join(',');
-        const url = `${window.location.origin}${window.location.pathname}?payment=qr&total=${total}&items=${encodeURIComponent(items)}`;
-        
-        // Генерация QR
-        const qr = qrcode(0, 'M');
-        qr.addData(url);
-        qr.make();
-        document.getElementById('qrcodeCanvas').innerHTML = qr.createImgTag(5);
-        qrDisplay.style.display = 'block';
-      });
-
-      // === Остальная логика (addToCart, F2 и т.д.) ===
-      function updateCart() {
-        if (cart.length === 0) {
-          cartEl.innerHTML = '<p>Корзина пуста</p>';
-          totalEl.textContent = '0';
-          loyaltyBonusEl.textContent = 'Бонусы: 0';
-          return;
-        }
-        cartEl.innerHTML = '';
-        let total = 0;
-        cart.forEach(item => {
-          const div = document.createElement('div');
-          div.className = 'cart-item';
-          div.innerHTML = `<span>${item.name} (${item.code})</span><span>${item.price} ₽</span>`;
-          cartEl.appendChild(div);
-          total += item.price;
-        });
-        totalEl.textContent = total;
-        loyaltyBonusEl.textContent = `Бонусы: +${Math.floor(total * 0.05)}`;
-      }
-
-      function addToCart(code) {
-        if (!CATALOG[code]) {
-          alert(`Штрихкод ${code} не найден`);
-          return;
-        }
-        cart.push({ code, ...CATALOG[code] });
-        updateCart();
-        mainInput.value = '';
-        searchResults.style.display = 'none';
-      }
-
-      // F2 и другие функции (аналогично предыдущей версии)
-      document.getElementById('generateBarcodeBtn').addEventListener('click', () => {
-        renderProductListForModal('');
-        productSelectModal.style.display = 'flex';
-      });
-
-      function renderProductListForModal(query) {
-        productListModal.innerHTML = '';
-        let count = 0;
-        for (const [code, prod] of Object.entries(CATALOG)) {
-          if (!query || prod.name.toLowerCase().includes(query)) {
-            const div = document.createElement('div');
-            div.className = 'product-item';
-            div.textContent = `${prod.name} — ${prod.price} ₽`;
-            div.onclick = () => {
-              const url = `https://barcode.tec-it.com/barcode.ashx?data=${code}&code=EAN13`;
-              alert(`Штрихкод сгенерирован: ${code}\nURL: ${url}`);
-              productSelectModal.style.display = 'none';
-            };
-            productListModal.appendChild(div);
-            count++;
-            if (count >= 50) break;
-          }
-        }
-        if (count === 0) {
-          productListModal.innerHTML = '<p>Препараты не найдены</p>';
-        }
-      }
-
-      window.addEventListener('click', (e) => {
-        if (e.target === productSelectModal) {
-          productSelectModal.style.display = 'none';
-        }
-      });
-
-      document.getElementById('manualBtn').addEventListener('click', () => {
-        const code = prompt('Введите 13-значный штрихкод:');
-        if (code && code.length === 13 && /^\d+$/.test(code)) {
-          addToCart(code);
-        }
-      });
-
-      document.getElementById('priceCheckBtn').addEventListener('click', () => {
+    // === Обработка Enter после сканирования ===
+    mainInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
         const val = mainInput.value.trim();
-        if (val.length === 13 && /^\d+$/.test(val) && CATALOG[val]) {
-          priceValueEl.textContent = CATALOG[val].price;
-          priceCheckEl.style.display = 'block';
-          setTimeout(() => priceCheckEl.style.display = 'none', 2500);
-        } else {
-          alert('Введите корректный 13-значный штрихкод');
+        if (val.length === 13 && /^\d+$/.test(val)) {
+          addToCart(val);
+        } else if (val.length > 0) {
+          alert('Введите ровно 13 цифр штрихкода');
         }
-      });
+      }
+    });
 
-      document.getElementById('cancelItem').addEventListener('click', () => {
-        if (cart.length > 0) {
-          cart.pop();
-          updateCart();
-        }
-      });
+    // === Проверка цены (Alt) ===
+    document.getElementById('priceCheckBtn').addEventListener('click', () => {
+      const val = mainInput.value.trim();
+      if (val.length === 13 && /^\d+$/.test(val) && CATALOG[val]) {
+        priceValueEl.textContent = CATALOG[val].price;
+        priceCheckEl.style.display = 'block';
+        setTimeout(() => priceCheckEl.style.display = 'none', 2000);
+      } else {
+        alert('Неверный штрихкод');
+      }
+    });
 
-      // Горячие клавиши
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'F2') {
-          e.preventDefault();
-          document.getElementById('generateBarcodeBtn').click();
+    // === Ручной ввод (Shift) ===
+    document.getElementById('manualBtn').addEventListener('click', () => {
+      const code = prompt('Введите 13-значный штрихкод:');
+      if (code && code.length === 13 && /^\d+$/.test(code)) {
+        addToCart(code);
+      }
+    });
+
+    // === Отмена товара ===
+    document.getElementById('cancelItem').addEventListener('click', () => {
+      if (cart.length > 0) {
+        cart.pop();
+        updateCart();
+      }
+    });
+
+    // === Оплата картой ===
+    document.getElementById('cardPaymentBtn').addEventListener('click', () => {
+      if (cart.length === 0) return alert('Корзина пуста');
+      if (confirm('Подтвердить оплату картой?')) {
+        const total = parseFloat(totalEl.textContent);
+        const receiptText = generateReceipt(total);
+        receiptEl.textContent = receiptText;
+        receiptEl.style.display = 'block';
+        if (db) {
+          db.ref('receipts').push({
+            items: cart,
+            total,
+            method: 'card',
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+          });
         }
-        if (e.altKey && e.key === ' ') {
-          e.preventDefault();
-          document.getElementById('priceCheckBtn').click();
+        cart = [];
+        updateCart();
+      }
+    });
+
+    // === Оплата по QR ===
+    document.getElementById('qrPaymentBtn').addEventListener('click', () => {
+      if (cart.length === 0) return alert('Корзина пуста');
+      const total = parseFloat(totalEl.textContent);
+      generateQrForPayment(total);
+    });
+
+    // === F2: генерация штрихкода для товара ===
+    document.getElementById('generateBarcodeBtn').addEventListener('click', () => {
+      renderProductListForModal('');
+      productSelectModal.style.display = 'flex';
+    });
+
+    function renderProductListForModal(query) {
+      productListModal.innerHTML = '';
+      let count = 0;
+      for (const [code, prod] of Object.entries(CATALOG)) {
+        if (!query || prod.name.toLowerCase().includes(query.toLowerCase())) {
+          const div = document.createElement('div');
+          div.className = 'product-item';
+          div.textContent = `${prod.name} — ${prod.price} ₽`;
+          div.onclick = () => {
+            generateBarcodeImage(code);
+            productSelectModal.style.display = 'none';
+          };
+          productListModal.appendChild(div);
+          count++;
+          if (count >= 50) break;
         }
-        if (e.shiftKey && e.key === ' ') {
-          e.preventDefault();
-          document.getElementById('manualBtn').click();
-        }
-      });
+      }
+      if (count === 0) {
+        productListModal.innerHTML = '<p>Не найдено</p>';
+      }
     }
+
+    productSearchModal.addEventListener('input', () => {
+      renderProductListForModal(productSearchModal.value);
+    });
+
+    // Закрытие модалки
+    window.addEventListener('click', (e) => {
+      if (e.target === productSelectModal) {
+        productSelectModal.style.display = 'none';
+      }
+    });
+
+    // === Горячие клавиши ===
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'F2') {
+        e.preventDefault();
+        document.getElementById('generateBarcodeBtn').click();
+      }
+      if (e.altKey && e.key === ' ') {
+        e.preventDefault();
+        document.getElementById('priceCheckBtn').click();
+      }
+      if (e.shiftKey && e.key === ' ') {
+        e.preventDefault();
+        document.getElementById('manualBtn').click();
+      }
+    });
   </script>
 </body>
 </html>
