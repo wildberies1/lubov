@@ -1,5 +1,4 @@
-
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
@@ -151,50 +150,138 @@
       return base + checkDigit;
     }
 
-    // === Генерация каталога БЕЗ дублей "название + количество" ===
-    function generatePharmacyCatalog() {
-      const baseNames = [
-        "Парацетамол", "Ибупрофен", "Аспирин", "Но-шпа", "Супрастин", "Цетрин", "Лоратадин",
-        "Омез", "Альмагель", "Энтеросгель", "Анальгин", "Диазолин", "Фуросемид", "Каптоприл",
-        "Метопролол", "Амлодипин", "Витамин C", "Витамин D3", "Магний B6", "Глицин", "Корвалол",
-        "Валокордин", "Нитроглицерин", "Спазган", "Кетанов", "Нурофен", "Терафлю", "Колдрекс",
-        "Аугментин", "Амоксициллин", "Азитромицин", "Ципрофлоксацин", "Флуконазол", "Нистатин",
-        "Линекс", "Хилак Форте", "Мезим", "Панкреатин", "Эспумизан", "Дюфалак", "Лактулоза",
-        "Афобазол", "Фенибут", "Пантогам", "Глицин форте", "Мексидол", "Пирацетам", "Церебролизин",
-        "Актовегин", "Кавинтон", "Бетасерк", "Винпоцетин", "Танакан", "Гинкоум", "Циннаризин"
+    // === Реальный каталог препаратов (2025) ===
+    function generateRealisticCatalog() {
+      const catalog = {};
+
+      const products = [
+        // Но-шпа
+        { name: "Но-шпа", form: "табл.", pack: 12, price: 180 },
+        { name: "Но-шпа", form: "табл.", pack: 24, price: 280 },
+        { name: "Но-шпа", form: "табл.", pack: 48, price: 480 },
+        
+        // Парацетамол
+        { name: "Парацетамол", form: "табл.", pack: 10, price: 25 },
+        { name: "Парацетамол", form: "табл.", pack: 20, price: 40 },
+        
+        // Ибупрофен
+        { name: "Ибупрофен", form: "табл.", pack: 20, price: 45 },
+        { name: "Ибупрофен", form: "табл.", pack: 50, price: 90 },
+        
+        // Левомеколь
+        { name: "Левомеколь", form: "мазь", pack: 40, unit: "г", price: 220 },
+        
+        // Бепантен
+        { name: "Бепантен", form: "крем", pack: 30, unit: "г", price: 650 },
+        { name: "Бепантен", form: "мазь", pack: 30, unit: "г", price: 580 },
+        
+        // Гепариновая мазь
+        { name: "Гепариновая мазь", form: "мазь", pack: 25, unit: "г", price: 110 },
+        { name: "Гепариновая мазь", form: "мазь", pack: 50, unit: "г", price: 190 },
+        
+        // Витамин D3
+        { name: "Витамин D3", form: "капс.", pack: 60, price: 420 },
+        { name: "Витамин D3", form: "капс.", pack: 120, price: 750 },
+        
+        // Витамин C
+        { name: "Витамин C", form: "табл.", pack: 20, price: 120 },
+        { name: "Витамин C", form: "табл.", pack: 50, price: 240 },
+        
+        // Омез
+        { name: "Омез", form: "капс.", pack: 10, price: 240 },
+        { name: "Омез", form: "капс.", pack: 30, price: 580 },
+        
+        // Нурофен (гель)
+        { name: "Нурофен", form: "гель", pack: 50, unit: "г", price: 320 },
+        { name: "Нурофен", form: "гель", pack: 100, unit: "г", price: 520 },
+        
+        // Д-Пантенол
+        { name: "Д-Пантенол", form: "крем", pack: 30, unit: "г", price: 280 },
+        { name: "Д-Пантенол", form: "мазь", pack: 30, unit: "г", price: 240 },
+        
+        // Супрастин
+        { name: "Супрастин", form: "табл.", pack: 10, price: 140 },
+        { name: "Супрастин", form: "табл.", pack: 20, price: 240 },
+        
+        // Лоратадин
+        { name: "Лоратадин", form: "табл.", pack: 10, price: 60 },
+        { name: "Лоратадин", form: "табл.", pack: 30, price: 140 },
+        
+        // Мезим
+        { name: "Мезим", form: "табл.", pack: 20, price: 220 },
+        { name: "Мезим", form: "табл.", pack: 80, price: 720 },
+        
+        // Линекс
+        { name: "Линекс", form: "капс.", pack: 16, price: 380 },
+        { name: "Линекс", form: "капс.", pack: 32, price: 680 },
+        
+        // Аспирин
+        { name: "Аспирин", form: "табл.", pack: 10, price: 120 },
+        { name: "Аспирин Кардио", form: "табл.", pack: 28, price: 240 },
+        
+        // Вольтарен (гель)
+        { name: "Вольтарен", form: "гель", pack: 50, unit: "г", price: 420 },
+        { name: "Вольтарен", form: "гель", pack: 100, unit: "г", price: 720 },
+        
+        // Кетонал (гель)
+        { name: "Кетонал", form: "гель", pack: 30, unit: "г", price: 340 },
+        { name: "Кетонал", form: "гель", pack: 50, unit: "г", price: 480 },
+        
+        // Цинковая мазь
+        { name: "Цинковая мазь", form: "мазь", pack: 25, unit: "г", price: 60 },
+        { name: "Цинковая мазь", form: "мазь", pack: 50, unit: "г", price: 90 },
+        
+        // Салициловая кислота
+        { name: "Салициловая кислота", form: "р-р", pack: 25, unit: "мл", price: 40 },
+        { name: "Салициловая кислота", form: "мазь", pack: 25, unit: "г", price: 50 },
+        
+        // Фурацилин
+        { name: "Фурацилин", form: "табл.", pack: 10, price: 120 },
+        { name: "Фурацилин", form: "р-р", pack: 200, unit: "мл", price: 280 },
+        
+        // Хлоргексидин
+        { name: "Хлоргексидин", form: "р-р", pack: 100, unit: "мл", price: 30 },
+        { name: "Хлоргексидин", form: "р-р", pack: 200, unit: "мл", price: 45 },
+        
+        // Активированный уголь
+        { name: "Активированный уголь", form: "табл.", pack: 10, price: 20 },
+        { name: "Активированный уголь", form: "табл.", pack: 50, price: 60 }
       ];
 
-      const quantities = [5, 10, 12, 14, 16, 20, 24, 28, 30, 50];
-      const catalog = {};
-      const usedCombinations = new Set(); // для отслеживания дублей
-
-      let count = 0;
-      while (count < 520) {
-        const base = baseNames[Math.floor(Math.random() * baseNames.length)];
-        const qty = quantities[Math.floor(Math.random() * quantities.length)];
-        const name = `${base} (${qty} шт)`;
-
-        // Проверяем, не создавали ли уже такой препарат
-        if (usedCombinations.has(name)) {
-          continue; // пропускаем дубль
+      for (const p of products) {
+        let displayName;
+        if (p.unit) {
+          displayName = `${p.name} (${p.pack} ${p.unit})`;
+        } else {
+          displayName = `${p.name} (${p.pack} ${p.form})`;
         }
-
-        usedCombinations.add(name);
-        const price = Math.floor(Math.random() * 1900) + 100;
         const code = generateEAN13("2000000");
+        catalog[code] = { name: displayName, price: p.price };
+      }
 
-        // Убеждаемся, что штрихкод уникален
-        if (catalog[code]) continue;
-
-        catalog[code] = { name, price };
-        count++;
+      // Дополним до ~500 товаров за счёт популярных аналогов и дженериков
+      const extraNames = ["Анальгин", "Диазолин", "Фуросемид", "Каптоприл", "Метопролол", "Амлодипин", "Глицин", "Корвалол", "Валокордин", "Спазган", "Кетанов", "Терафлю", "Колдрекс", "Амоксициллин", "Азитромицин", "Флуконазол", "Нистатин", "Хилак Форте", "Панкреатин", "Эспумизан", "Дюфалак", "Лактулоза", "Афобазол", "Фенибут", "Пантогам", "Мексидол", "Пирацетам", "Актовегин", "Кавинтон", "Бетасерк", "Винпоцетин", "Гинкоум", "Циннаризин"];
+      const forms = ["табл.", "капс."];
+      const packs = [10, 20, 30, 50];
+      let count = Object.keys(catalog).length;
+      while (count < 500) {
+        const name = extraNames[Math.floor(Math.random() * extraNames.length)];
+        const form = forms[Math.floor(Math.random() * forms.length)];
+        const pack = packs[Math.floor(Math.random() * packs.length)];
+        const price = Math.floor(Math.random() * 800) + 50;
+        const displayName = `${name} (${pack} ${form})`;
+        const code = generateEAN13("2000000");
+        if (!catalog[code]) {
+          catalog[code] = { name: displayName, price };
+          count++;
+        }
       }
 
       return catalog;
     }
 
     // === State ===
-    let CATALOG = generatePharmacyCatalog();
+    let CATALOG = generateRealisticCatalog();
     let cart = [];
 
     // === DOM ===
@@ -212,7 +299,7 @@
     const productSearchModal = document.getElementById('productSearchModal');
 
     // === Инициализация ===
-    console.log("Каталог загружен:", Object.keys(CATALOG).length, "уникальных препаратов");
+    console.log("Реалистичный каталог загружен:", Object.keys(CATALOG).length, "товаров");
     updateCart();
 
     // === Обновление корзины ===
