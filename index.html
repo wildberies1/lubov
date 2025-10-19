@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+
+    <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
@@ -150,36 +151,50 @@
       return base + checkDigit;
     }
 
-    // === Генерация названия с количеством штук ===
-    function generateProductName(baseName) {
-      const quantities = [5, 10, 12, 14, 16, 20, 24, 28, 30, 50];
-      const qty = quantities[Math.floor(Math.random() * quantities.length)];
-      return `${baseName} (${qty} шт)`;
-    }
-
-    // === Каталог 520 препаратов с указанием количества ===
-    function generatePharmacyCatalog(count = 520) {
+    // === Генерация каталога БЕЗ дублей "название + количество" ===
+    function generatePharmacyCatalog() {
       const baseNames = [
         "Парацетамол", "Ибупрофен", "Аспирин", "Но-шпа", "Супрастин", "Цетрин", "Лоратадин",
         "Омез", "Альмагель", "Энтеросгель", "Анальгин", "Диазолин", "Фуросемид", "Каптоприл",
         "Метопролол", "Амлодипин", "Витамин C", "Витамин D3", "Магний B6", "Глицин", "Корвалол",
         "Валокордин", "Нитроглицерин", "Спазган", "Кетанов", "Нурофен", "Терафлю", "Колдрекс",
         "Аугментин", "Амоксициллин", "Азитромицин", "Ципрофлоксацин", "Флуконазол", "Нистатин",
-        "Линекс", "Хилак Форте", "Мезим", "Панкреатин", "Эспумизан", "Дюфалак", "Лактулоза"
+        "Линекс", "Хилак Форте", "Мезим", "Панкреатин", "Эспумизан", "Дюфалак", "Лактулоза",
+        "Афобазол", "Фенибут", "Пантогам", "Глицин форте", "Мексидол", "Пирацетам", "Церебролизин",
+        "Актовегин", "Кавинтон", "Бетасерк", "Винпоцетин", "Танакан", "Гинкоум", "Циннаризин"
       ];
+
+      const quantities = [5, 10, 12, 14, 16, 20, 24, 28, 30, 50];
       const catalog = {};
-      for (let i = 0; i < count; i++) {
+      const usedCombinations = new Set(); // для отслеживания дублей
+
+      let count = 0;
+      while (count < 520) {
         const base = baseNames[Math.floor(Math.random() * baseNames.length)];
-        const name = generateProductName(base);
-        const price = Math.floor(Math.random() * 1900) + 100; // 100–2000 руб.
+        const qty = quantities[Math.floor(Math.random() * quantities.length)];
+        const name = `${base} (${qty} шт)`;
+
+        // Проверяем, не создавали ли уже такой препарат
+        if (usedCombinations.has(name)) {
+          continue; // пропускаем дубль
+        }
+
+        usedCombinations.add(name);
+        const price = Math.floor(Math.random() * 1900) + 100;
         const code = generateEAN13("2000000");
+
+        // Убеждаемся, что штрихкод уникален
+        if (catalog[code]) continue;
+
         catalog[code] = { name, price };
+        count++;
       }
+
       return catalog;
     }
 
     // === State ===
-    let CATALOG = generatePharmacyCatalog(520);
+    let CATALOG = generatePharmacyCatalog();
     let cart = [];
 
     // === DOM ===
@@ -197,7 +212,7 @@
     const productSearchModal = document.getElementById('productSearchModal');
 
     // === Инициализация ===
-    console.log("Каталог загружен:", Object.keys(CATALOG).length, "препаратов");
+    console.log("Каталог загружен:", Object.keys(CATALOG).length, "уникальных препаратов");
     updateCart();
 
     // === Обновление корзины ===
