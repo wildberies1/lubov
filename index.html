@@ -24,7 +24,6 @@
     button.alt { background: #9b59b6; }
     button.f2 { background: #2ecc71; }
     button.card { background: #e74c3c; }
-    button.qr { background: #1abc9c; }
     .cart {
       background: white; border: 1px solid #ecf0f1; border-radius: 6px;
       padding: 12px; margin-bottom: 16px; max-height: 320px; overflow-y: auto;
@@ -41,18 +40,19 @@
     .actions {
       display: flex; gap: 10px; flex-wrap: wrap;
     }
-    .actions button { flex: 1; min-width: 120px; }
+    .actions button { flex: 1; min-width: 130px; }
     .price-check {
       margin-top: 10px; padding: 10px; background: #fff9c4; border-left: 4px solid #fbc02d;
       display: none; font-weight: bold;
     }
-    .barcode-display, .qr-display {
+    .barcode-display {
       margin-top: 16px; text-align: center; padding: 12px; background: white;
       border-radius: 6px; display: none;
     }
-    .barcode-display img, .qr-display img {
+    .barcode-display img {
       max-width: 100%; height: auto;
       image-rendering: pixelated;
+      border: 1px solid #ddd;
     }
     .receipt {
       background: white; padding: 20px; border: 1px solid #333; border-radius: 8px;
@@ -104,20 +104,13 @@
     <div class="actions">
       <button id="cancelItem">Отменить товар</button>
       <button class="card" id="cardPaymentBtn">Оплата картой</button>
-      <button class="qr" id="qrPaymentBtn">Оплата по QR</button>
       <button class="f2" id="generateBarcodeBtn">Создать штрихкод (F2)</button>
     </div>
 
     <div class="barcode-display" id="barcodeDisplay">
       <h4>Штрихкод для сканирования</h4>
       <img id="barcodeImage" src="" alt="Штрихкод" />
-      <p id="barcodeCode"></p>
-    </div>
-
-    <div class="qr-display" id="qrDisplay">
-      <h4>Оплатите по QR-коду</h4>
-      <img id="qrImage" src="" alt="QR для оплаты" />
-      <p>Сканируйте камерой телефона</p>
+      <p id="barcodeCode" style="margin-top:8px; font-weight:bold;"></p>
     </div>
 
     <div class="receipt" id="receipt"></div>
@@ -126,14 +119,14 @@
   <!-- Модальное окно выбора препарата -->
   <div class="modal" id="productSelectModal">
     <div class="modal-content">
-      <h3>Выберите препарат</h3>
-      <input type="text" id="productSearchModal" placeholder="Поиск..." style="width:100%; margin-bottom:10px;" />
+      <h3>Выберите препарат для генерации штрихкода</h3>
+      <input type="text" id="productSearchModal" placeholder="Поиск по названию..." style="width:100%; margin-bottom:10px;" />
       <div id="productListModal"></div>
     </div>
   </div>
 
   <script>
-    // === Firebase (замените на свой) ===
+    // === Firebase (замените на ваш) ===
     const firebaseConfig = {
       databaseURL: "https://apteka-lyubov-default-rtdb.firebaseio.com/"
     };
@@ -157,13 +150,28 @@
       return base + checkDigit;
     }
 
-    // === Каталог 520 препаратов ===
+    // === Генерация названия с количеством штук ===
+    function generateProductName(baseName) {
+      const quantities = [5, 10, 12, 14, 16, 20, 24, 28, 30, 50];
+      const qty = quantities[Math.floor(Math.random() * quantities.length)];
+      return `${baseName} (${qty} шт)`;
+    }
+
+    // === Каталог 520 препаратов с указанием количества ===
     function generatePharmacyCatalog(count = 520) {
-      const names = ["Парацетамол","Ибупрофен","Аспирин","Но-шпа","Супрастин","Цетрин","Лоратадин","Омез","Альмагель","Энтеросгель","Анальгин","Диазолин","Фуросемид","Каптоприл","Метопролол","Амлодипин","Витамин C","Витамин D3","Магний B6","Глицин","Корвалол","Валокордин","Нитроглицерин","Спазган","Кетанов","Нурофен","Терафлю","Колдрекс","Аугментин","Амоксициллин","Азитромицин","Ципрофлоксацин","Флуконазол","Нистатин","Линекс","Хилак Форте","Мезим","Панкреатин","Эспумизан","Дюфалак","Лактулоза"];
+      const baseNames = [
+        "Парацетамол", "Ибупрофен", "Аспирин", "Но-шпа", "Супрастин", "Цетрин", "Лоратадин",
+        "Омез", "Альмагель", "Энтеросгель", "Анальгин", "Диазолин", "Фуросемид", "Каптоприл",
+        "Метопролол", "Амлодипин", "Витамин C", "Витамин D3", "Магний B6", "Глицин", "Корвалол",
+        "Валокордин", "Нитроглицерин", "Спазган", "Кетанов", "Нурофен", "Терафлю", "Колдрекс",
+        "Аугментин", "Амоксициллин", "Азитромицин", "Ципрофлоксацин", "Флуконазол", "Нистатин",
+        "Линекс", "Хилак Форте", "Мезим", "Панкреатин", "Эспумизан", "Дюфалак", "Лактулоза"
+      ];
       const catalog = {};
       for (let i = 0; i < count; i++) {
-        const name = names[Math.floor(Math.random() * names.length)] + " №" + (i + 1);
-        const price = Math.floor(Math.random() * 1900) + 100;
+        const base = baseNames[Math.floor(Math.random() * baseNames.length)];
+        const name = generateProductName(base);
+        const price = Math.floor(Math.random() * 1900) + 100; // 100–2000 руб.
         const code = generateEAN13("2000000");
         catalog[code] = { name, price };
       }
@@ -183,8 +191,6 @@
     const barcodeDisplay = document.getElementById('barcodeDisplay');
     const barcodeImage = document.getElementById('barcodeImage');
     const barcodeCode = document.getElementById('barcodeCode');
-    const qrDisplay = document.getElementById('qrDisplay');
-    const qrImage = document.getElementById('qrImage');
     const receiptEl = document.getElementById('receipt');
     const productSelectModal = document.getElementById('productSelectModal');
     const productListModal = document.getElementById('productListModal');
@@ -206,7 +212,7 @@
       cart.forEach(item => {
         const div = document.createElement('div');
         div.className = 'cart-item';
-        div.innerHTML = `<span>${item.name} (${item.code})</span><span>${item.price} ₽</span>`;
+        div.innerHTML = `<span>${item.name} [${item.code}]</span><span>${item.price} ₽</span>`;
         cartEl.appendChild(div);
         total += item.price;
       });
@@ -224,22 +230,12 @@
       mainInput.value = '';
     }
 
-    // === Генерация изображения штрихкода (EAN-13) ===
+    // === Генерация изображения штрихкода ===
     function generateBarcodeImage(code) {
-      // Используем бесплатный API для генерации изображения штрихкода
       const url = `https://barcode.tec-it.com/barcode.ashx?data=${code}&code=EAN13&translate-esc=on&unit=Fit&dpi=96`;
       barcodeImage.src = url;
-      barcodeCode.textContent = `Код: ${code}`;
+      barcodeCode.textContent = `Штрихкод: ${code}`;
       barcodeDisplay.style.display = 'block';
-      qrDisplay.style.display = 'none';
-    }
-
-    // === Генерация QR для оплаты ===
-    function generateQrForPayment(total) {
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=Оплата в аптеке Любовь. Сумма: ${total} руб.`;
-      qrImage.src = qrUrl;
-      qrDisplay.style.display = 'block';
-      barcodeDisplay.style.display = 'none';
     }
 
     // === Генерация чека ===
@@ -252,7 +248,7 @@
       lines.push("=".repeat(32));
       lines.push("Товары:");
       cart.forEach(item => {
-        lines.push(`${item.name.padEnd(20)} ${item.price} ₽`);
+        lines.push(`${item.name.padEnd(25)} ${item.price} ₽`);
       });
       lines.push("=".repeat(32));
       lines.push(`ИТОГО: ${total} ₽`);
@@ -261,7 +257,7 @@
       return lines.join('\n');
     }
 
-    // === Обработка Enter после сканирования ===
+    // === Enter после сканирования ===
     mainInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -320,17 +316,11 @@
         }
         cart = [];
         updateCart();
+        barcodeDisplay.style.display = 'none';
       }
     });
 
-    // === Оплата по QR ===
-    document.getElementById('qrPaymentBtn').addEventListener('click', () => {
-      if (cart.length === 0) return alert('Корзина пуста');
-      const total = parseFloat(totalEl.textContent);
-      generateQrForPayment(total);
-    });
-
-    // === F2: генерация штрихкода для товара ===
+    // === F2: генерация штрихкода ===
     document.getElementById('generateBarcodeBtn').addEventListener('click', () => {
       renderProductListForModal('');
       productSelectModal.style.display = 'flex';
@@ -354,7 +344,7 @@
         }
       }
       if (count === 0) {
-        productListModal.innerHTML = '<p>Не найдено</p>';
+        productListModal.innerHTML = '<p>Препараты не найдены</p>';
       }
     }
 
