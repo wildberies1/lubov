@@ -88,7 +88,7 @@
     </header>
 
     <div class="input-area">
-      <input type="text" id="mainInput" placeholder="Введите штрихкод (13 цифр) или название..." autocomplete="off" autofocus />
+      <input type="text" id="mainInput" placeholder="Сканируйте штрихкод или введите 13 цифр..." autocomplete="off" autofocus />
       <button id="manualBtn">Ручной ввод (Shift)</button>
       <button class="alt" id="priceCheckBtn">Цена (Alt)</button>
     </div>
@@ -121,7 +121,7 @@
     </div>
   </div>
 
-  <!-- Модальное окно выбора препарата для F2 -->
+  <!-- Модальное окно выбора препарата -->
   <div class="modal" id="productSelectModal">
     <div class="modal-content">
       <h3>Выберите препарат для генерации штрихкода</h3>
@@ -130,17 +130,16 @@
     </div>
   </div>
 
-  <!-- Онлайн-заказ -->
+  <!-- Формы -->
   <div class="online-order" id="onlineOrderForm">
     <h3>Онлайн-заказ</h3>
     <input type="text" id="clientName" placeholder="ФИО клиента" />
     <input type="tel" id="clientPhone" placeholder="Телефон (+7...)" />
-    <textarea id="orderItems" placeholder="Список препаратов (по одному на строку)"></textarea>
+    <textarea id="orderItems" placeholder="Список препаратов"></textarea>
     <button id="submitOrder">Отправить заказ</button>
     <div class="status" id="orderStatus"></div>
   </div>
 
-  <!-- Лояльность -->
   <div class="loyalty-section" id="loyaltyForm">
     <h3>Карта лояльности</h3>
     <input type="tel" id="loyaltyPhone" placeholder="Телефон (+7...)" />
@@ -148,16 +147,15 @@
     <div id="loyaltyInfo" style="margin-top:10px;"></div>
   </div>
 
-  <!-- Архив -->
   <div class="archive-section" id="archiveForm">
     <h3>Архив заказов и чеков</h3>
-    <input type="text" id="archiveQuery" placeholder="ФИО, телефон или дата (ДД.ММ.ГГГГ)" />
+    <input type="text" id="archiveQuery" placeholder="ФИО, телефон или дата" />
     <button id="searchArchive">Найти</button>
     <div id="archiveResults" style="margin-top:10px; max-height:300px; overflow-y:auto;"></div>
   </div>
 
   <script>
-    // === Firebase Init ===
+    // === Firebase (замените URL) ===
     const firebaseConfig = {
       databaseURL: "https://apteka-lyubov-default-rtdb.firebaseio.com/"
     };
@@ -169,7 +167,7 @@
       console.warn("Firebase не инициализирован");
     }
 
-    // === Генерация валидного EAN-13 ===
+    // === Генерация EAN-13 ===
     function generateEAN13(prefix = "2000000") {
       let base = prefix + String(Math.floor(Math.random() * 100000)).padStart(5, '0');
       let sum = 0;
@@ -181,24 +179,13 @@
       return base + checkDigit;
     }
 
-    // === Генерация 520 препаратов ===
+    // === Каталог 520 препаратов ===
     function generatePharmacyCatalog(count = 520) {
-      const commonNames = [
-        "Парацетамол", "Ибупрофен", "Аспирин", "Но-шпа", "Супрастин", "Цетрин", "Лоратадин",
-        "Омез", "Альмагель", "Энтеросгель", "Анальгин", "Диазолин", "Фуросемид", "Каптоприл",
-        "Метопролол", "Амлодипин", "Витамин C", "Витамин D3", "Магний B6", "Глицин", "Корвалол",
-        "Валокордин", "Нитроглицерин", "Спазган", "Кетанов", "Нурофен", "Терафлю", "Колдрекс",
-        "Аугментин", "Амоксициллин", "Азитромицин", "Ципрофлоксацин", "Флуконазол", "Нистатин",
-        "Линекс", "Хилак Форте", "Мезим", "Панкреатин", "Эспумизан", "Дюфалак", "Лактулоза",
-        "Афобазол", "Фенибут", "Пантогам", "Глицин форте", "Мексидол", "Пирацетам", "Церебролизин",
-        "Актовегин", "Кавинтон", "Бетасерк", "Винпоцетин", "Танакан", "Гинкоум", "Циннаризин",
-        "Нейромидин", "Артра", "Терафлекс", "Дона", "Хондроитин", "Глюкозамин", "Мовалис",
-        "Диклофенак", "Мелоксикам", "Нимесулид", "Ксефокам", "Баралгин", "Спазмалгон", "Темпалгин"
-      ];
+      const names = ["Парацетамол","Ибупрофен","Аспирин","Но-шпа","Супрастин","Цетрин","Лоратадин","Омез","Альмагель","Энтеросгель","Анальгин","Диазолин","Фуросемид","Каптоприл","Метопролол","Амлодипин","Витамин C","Витамин D3","Магний B6","Глицин","Корвалол","Валокордин","Нитроглицерин","Спазган","Кетанов","Нурофен","Терафлю","Колдрекс","Аугментин","Амоксициллин","Азитромицин","Ципрофлоксацин","Флуконазол","Нистатин","Линекс","Хилак Форте","Мезим","Панкреатин","Эспумизан","Дюфалак","Лактулоза","Афобазол","Фенибут","Пантогам","Глицин форте","Мексидол","Пирацетам","Церебролизин","Актовегин","Кавинтон","Бетасерк","Винпоцетин","Танакан","Гинкоум","Циннаризин","Нейромидин","Артра","Терафлекс","Дона","Хондроитин","Глюкозамин","Мовалис","Диклофенак","Мелоксикам","Нимесулид","Ксефокам","Баралгин","Спазмалгон","Темпалгин"];
       const catalog = {};
       for (let i = 0; i < count; i++) {
-        const name = commonNames[Math.floor(Math.random() * commonNames.length)] + " №" + (i + 1);
-        const price = Math.floor(Math.random() * 1900) + 100; // 100–2000 руб.
+        const name = names[Math.floor(Math.random() * names.length)] + " №" + (i + 1);
+        const price = Math.floor(Math.random() * 1900) + 100;
         const code = generateEAN13("2000000");
         catalog[code] = { name, price };
       }
@@ -255,7 +242,7 @@
 
     function addToCart(code) {
       if (!CATALOG[code]) {
-        alert(`Препарат не найден`);
+        alert(`Штрихкод ${code} не найден`);
         return;
       }
       cart.push({ code, ...CATALOG[code] });
@@ -271,10 +258,23 @@
       barcodeDisplay.style.display = 'block';
     }
 
-    // === Поиск по названию (основное поле) ===
+    // === Обработка ввода + Enter ===
+    mainInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const val = mainInput.value.trim();
+        if (val.length === 13 && /^\d+$/.test(val)) {
+          addToCart(val);
+        } else if (val.length > 0) {
+          alert('Для добавления в корзину по Enter введите ровно 13 цифр');
+        }
+      }
+    });
+
+    // === Поиск по названию (в реальном времени) ===
     mainInput.addEventListener('input', () => {
       const query = mainInput.value.trim().toLowerCase();
-      if (query.length < 2) {
+      if (query.length < 2 || /^\d+$/.test(query)) {
         searchResults.style.display = 'none';
         return;
       }
@@ -302,7 +302,7 @@
       }
     });
 
-    // === F2: выбор препарата для генерации штрихкода ===
+    // === F2: выбор препарата ===
     document.getElementById('generateBarcodeBtn').addEventListener('click', () => {
       renderProductListForModal('');
       productSelectModal.style.display = 'flex';
@@ -315,9 +315,8 @@
 
     function renderProductListForModal(query) {
       productListModal.innerHTML = '';
-      const entries = Object.entries(CATALOG);
       let count = 0;
-      for (const [code, prod] of entries) {
+      for (const [code, prod] of Object.entries(CATALOG)) {
         if (!query || prod.name.toLowerCase().includes(query)) {
           const div = document.createElement('div');
           div.className = 'product-item';
@@ -328,7 +327,7 @@
           };
           productListModal.appendChild(div);
           count++;
-          if (count >= 50) break; // ограничение для производительности
+          if (count >= 50) break;
         }
       }
       if (count === 0) {
@@ -336,7 +335,7 @@
       }
     }
 
-    // === Закрытие модалки по клику вне ===
+    // === Закрытие модалки ===
     window.addEventListener('click', (e) => {
       if (e.target === productSelectModal) {
         productSelectModal.style.display = 'none';
@@ -393,13 +392,13 @@
     document.getElementById('archiveBtn').onclick = () => archiveForm.style.display = archiveForm.style.display === 'none' ? 'block' : 'none';
 
     // Онлайн-заказ
-    document.getElementById('submitOrder').addEventListener('click', async () => {
+    document.getElementById('submitOrder').addEventListener('click', () => {
       const name = document.getElementById('clientName').value.trim();
       const phone = document.getElementById('clientPhone').value.trim();
       const items = document.getElementById('orderItems').value.trim();
       if (!name || !phone || !items) return alert('Заполните все поля');
       if (db) {
-        await db.ref('online-orders').push({ name, phone, items, status: 'новый', timestamp: firebase.database.ServerValue.TIMESTAMP });
+        db.ref('online-orders').push({ name, phone, items, status: 'новый', timestamp: firebase.database.ServerValue.TIMESTAMP });
         document.getElementById('orderStatus').textContent = '✅ Заказ отправлен!';
         setTimeout(() => onlineOrderForm.style.display = 'none', 2000);
       } else {
