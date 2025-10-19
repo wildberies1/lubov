@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Касса — Аптека «Любовь»</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: #f0f4f8; color: #2c3e50; padding: 12px; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #3498db; }
+    h1 { color: #c0392b; font-size: 24px; }
+    .subtitle { font-size: 14px; color: #7f8c8d; margin-top: 4px; }
+    .input-area {
+      display: flex; gap: 10px; margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    input, button, select { padding: 10px; font-size: 16px; border: 1px solid #bdc3c7; border-radius: 4px; }
+    input { flex: 1; min-width: 220px; }
+    button { cursor: pointer; background: #3498db; color: white; border: none; }
+    button:hover { background: #2980b9; }
+    button.alt { background: #9b59b6; }
+    button.f2 { background: #2ecc71; }
+    button.loyalty { background: #f39c12; }
+    .cart {
+      background: white; border: 1px solid #ecf0f1; border-radius: 6px;
+      padding: 12px; margin-bottom: 16px; max-height: 320px; overflow-y: auto;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .cart-item {
+      display: flex; justify-content: space-between; padding: 6px 0;
+      border-bottom: 1px dashed #eee;
+    }
+    .total {
+      font-size: 20px; font-weight: bold; text-align: right;
+      margin: 12px 0; color: #27ae60;
+    }
+    .actions {
+      display: flex; gap: 10px; flex-wrap: wrap;
+    }
+    .actions button { flex: 1; min-width: 130px; }
+    .price-check {
+      margin-top: 10px; padding: 10px; background: #fff9c4; border-left: 4px solid #fbc02d;
+      display: none; font-weight: bold;
+    }
+    .barcode-display {
+      margin-top: 16px; text-align: center; padding: 12px; background: white;
+      border-radius: 6px; display: none;
+    }
+    .barcode-display img {
+      max-width: 100%; height: auto;
+    }
+    .online-order, .loyalty-section, .archive-section, .search-results {
+      margin-top: 20px; padding: 16px; border-radius: 6px; display: none;
+    }
+    .online-order { border: 1px dashed #8e44ad; background: #f9f0ff; }
+    .loyalty-section { border: 1px solid #f39c12; background: #fff8e1; }
+    .archive-section { border: 1px solid #16a085; background: #e8f5f2; }
+    .search-results { border: 1px solid #3498db; background: #ebf5fb; }
+    .online-order h3, .loyalty-section h3, .archive-section h3, .search-results h3 {
+      margin-bottom: 10px;
+    }
+    .online-order input, .online-order textarea,
+    .loyalty-section input, .archive-section input {
+      width: 100%; margin: 6px 0; padding: 8px;
+    }
+    .status { margin-top: 10px; color: #27ae60; font-weight: bold; }
+    .search-results div { padding: 6px; cursor: pointer; border-bottom: 1px solid #d6eaf8; }
+    .search-results div:hover { background: #d6eaf8; }
+    @media (max-width: 600px) {
+      .input-area, .actions { flex-direction: column; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Аптека «Любовь» — Касса</h1>
+      <div class="subtitle">ИНН: 7701234567 | г. Москва, ул. Здоровья, д. 10</div>
+    </header>
+
+    <!-- Основной ввод -->
+    <div class="input-area">
+      <input type="text" id="mainInput" placeholder="Введите штрихкод (13 цифр) или название препарата..." autocomplete="off" autofocus />
+      <button id="searchBtn">Поиск по названию</button>
+      <button class="alt" id="priceCheckBtn">Цена (Alt)</button>
+    </div>
+
+    <!-- Результаты поиска -->
+    <div class="search-results" id="searchResults"></div>
+
+    <!-- Проверка цены -->
+    <div class="price-check" id="priceCheck">Цена: <span id="priceValue"></span> руб.</div>
+
+    <!-- Корзина -->
+    <div class="cart" id="cart">
+      <p>Корзина пуста</p>
+    </div>
+
+    <!-- Итого -->
+    <div class="total">
+      Итого: <span id="totalAmount">0</span> руб.
+      <br><small id="loyaltyBonus">Бонусы: 0</small>
+    </div>
+
+    <!-- Действия -->
+    <div class="actions">
+      <button id="cancelItem">Отменить товар</button>
+      <button id="checkoutBtn">Оплатить</button>
+      <button class="f2" id="generateBarcodeBtn">Штрихкод (F2)</button>
+      <button class="loyalty" id="loyaltyBtn">Лояльность</button>
+      <button id="archiveBtn">Архив</button>
+      <button id="onlineOrderBtn">Онлайн-заказ</button>
+    </div>
+
+    <!-- Генерация штрихкода -->
+    <div class="barcode-display" id="barcodeDisplay">
+      <h4>Сгенерированный штрихкод</h4>
+      <img id="barcodeImage" src="" alt="Штрихкод" />
+    </div>
+
+    <!-- Онлайн-заказ -->
+    <div class="online-order" id="onlineOrderForm">
+      <h3>Онлайн-заказ</h3>
+      <input type="text" id="clientName" placeholder="ФИО клиента" />
+      <input type="tel" id="clientPhone" placeholder="Телефон (+7...)" />
+      <textarea id="orderItems" placeholder="Список препаратов (по одному на строку)"></textarea>
+      <button id="submitOrder">Отправить заказ</button>
+      <div class="status" id="orderStatus"></div>
+    </div>
+
+    <!-- Лояльность -->
+    <div class="loyalty-section" id="loyaltyForm">
+      <h3>Карта лояльности</h3>
+      <input type="tel" id="loyaltyPhone" placeholder="Телефон (+7...)" />
+      <button id="checkLoyalty">Проверить карту</button>
+      <div id="loyaltyInfo" style="margin-top:10px;"></div>
+      <div id="favoriteSelection" style="display:none; margin-top:10px;">
+        <p>Выберите любимый препарат (только один раз):</p>
+        <input type="text" id="favSearch" placeholder="Поиск..." />
+        <div id="favResults" style="max-height:150px; overflow-y:auto; margin-top:5px;"></div>
+      </div>
+    </div>
+
+    <!-- Архив -->
+    <div class="archive-section" id="archiveForm">
+      <h3>Архив заказов и чеков</h3>
+      <input type="text" id="archiveQuery" placeholder="ФИО, телефон или дата (ДД.ММ.ГГГГ)" />
+      <button id="searchArchive">Найти</button>
+      <div id="archiveResults" style="margin-top:10px; max-height:300px; overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <script>
+    // === Firebase Init ===
+    const firebaseConfig = {
+      databaseURL: "https://apteka-lyubov-default-rtdb.firebaseio.com/"
+    };
+    let db;
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+    } catch (e) {
+      console.warn("Firebase не инициализирован");
+    }
+
+    // === Генерация EAN-13 ===
+    function generateEAN13(prefix = "2000000") {
+      let base = prefix + String(Math.floor(Math.random() * 100000)).padStart(5, '0');
+      let sum = 0;
+      for (let i = 0; i < 12; i++) {
+        let digit = parseInt(base[i]);
+        sum += (i % 2 === 0) ? digit * 1 : digit * 3;
+      }
+      let checkDigit = (10 - (sum % 10)) % 10;
+      return base + checkDigit;
+    }
+
+    // === Генерация каталога (500+ препаратов) ===
+    async function initCatalog() {
+      if (!db) {
+        // offline fallback
+        const commonNames = ["Парацетамол","Ибупрофен","Аспирин","Но-шпа","Супрастин","Цетрин","Лоратадин","Омез","Альмагель","Энтеросгель","Анальгин","Диазолин","Фуросемид","Каптоприл","Метопролол","Амлодипин","Витамин C","Витамин D3","Магний B6","Глицин","Корвалол","Валокордин","Нитроглицерин","Спазган","Кетанов","Нурофен","Терафлю","Колдрекс","Аугментин","Амоксициллин","Азитромицин","Ципрофлоксацин","Флуконазол","Нистатин","Линекс","Хилак Форте","Мезим","Панкреатин","Эспумизан","Дюфалак","Лактулоза"];
+        const catalog = {};
+        for (let i = 0; i < 520; i++) {
+          const name = commonNames[Math.floor(Math.random() * commonNames.length)] + " №" + (i + 1);
+          const price = Math.floor(Math.random() * 1900) + 100;
+          const code = generateEAN13("2000000");
+          catalog[code] = { name, price };
+        }
+        return catalog;
+      }
+
+      // online: попытка загрузить из Firebase
+      const snapshot = await db.ref('products').once('value');
+      if (snapshot.exists() && Object.keys(snapshot.val()).length >= 500) {
+        return snapshot.val();
+      } else {
+        // генерация и сохранение
+        const commonNames = ["Парацетамол","Ибупрофен","Аспирин","Но-шпа","Супрастин","Цетрин","Лоратадин","Омез","Альмагель","Энтеросгель","Анальгин","Диазолин","Фуросемид","Каптоприл","Метопролол","Амлодипин","Витамин C","Витамин D3","Магний B6","Глицин","Корвалол","Валокордин","Нитроглицерин","Спазган","Кетанов","Нурофен","Терафлю","Колдрекс","Аугментин","Амоксициллин","Азитромицин","Ципрофлоксацин","Флуконазол","Нистатин","Линекс","Хилак Форте","Мезим","Панкреатин","Эспумизан","Дюфалак","Лактулоза"];
+        const catalog = {};
+        for (let i = 0; i < 520; i++) {
+          const name = commonNames[Math.floor(Math.random() * commonNames.length)] + " №" + (i + 1);
+          const price = Math.floor(Math.random() * 1900) + 100;
+          const code = generateEAN13("2000000");
+          catalog[code] = { name, price };
+        }
+        await db.ref('products').set(catalog);
+        return catalog;
+      }
+    }
+
+    // === State ===
+    let CATALOG = {};
+    let cart = [];
+    let currentUser = null; // { phone, name, dob, bonus, favorite }
+    let favoriteSelected = false;
+
+    // === DOM ===
+    const mainInput = document.getElementById('mainInput');
+    const searchResults = document.getElementById('searchResults');
+    const cartEl = document.getElementById('cart');
+    const totalEl = document.getElementById('totalAmount');
+    const loyaltyBonusEl = document.getElementById('loyaltyBonus');
+    const priceCheckEl = document.getElementById('priceCheck');
+    const priceValueEl = document.getElementById('priceValue');
+    const barcodeDisplay = document.getElementById('barcodeDisplay');
+    const barcodeImage = document.getElementById('barcodeImage');
+    const onlineOrderForm = document.getElementById('onlineOrderForm');
+    const loyaltyForm = document.getElementById('loyaltyForm');
+    const archiveForm = document.getElementById('archiveForm');
+
+    // === Инициализация ===
+    (async () => {
+      CATALOG = await initCatalog();
+      console.log("Каталог загружен:", Object.keys(CATALOG).length, "препаратов");
+      updateCart();
+    })();
+
+    // === Utils ===
+    function updateCart() {
+      if (cart.length === 0) {
+        cartEl.innerHTML = '<p>Корзина пуста</p>';
+        totalEl.textContent = '0';
+        loyaltyBonusEl.textContent = 'Бонусы: 0';
+        return;
+      }
+      cartEl.innerHTML = '';
+      let total = 0;
+      cart.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'cart-item';
+        div.innerHTML = `<span>${item.name} (${item.code})</span><span>${item.price} ₽</span>`;
+        cartEl.appendChild(div);
+        total += item.price;
+      });
+      totalEl.textContent = total;
+      // Расчёт бонусов
+      let bonus = Math.floor(total * 0.05);
+      if (currentUser && currentUser.favorite) {
+        const favItem = cart.find(i => i.code === currentUser.favorite);
+        if (favItem) bonus += Math.floor(favItem.price * 0.05);
+      }
+      loyaltyBonusEl.textContent = `Бонусы: +${bonus}`;
+    }
+
+    function addToCart(code) {
+      if (!CATALOG[code]) {
+        alert(`Препарат не найден`);
+        return;
+      }
+      cart.push({ code, ...CATALOG[code] });
+      updateCart();
+      mainInput.value = '';
+      searchResults.style.display = 'none';
+    }
+
+    function generateBarcodeImage(code) {
+      const url = `https://barcode.tec-it.com/barcode.ashx?data=${code}&code=EAN13&multiplebarcodes=false&translate-esc=on&unit=Fit&dpi=96`;
+      barcodeImage.src = url;
+      barcodeDisplay.style.display = 'block';
+    }
+
+    // === Поиск по названию ===
+    mainInput.addEventListener('input', () => {
+      const query = mainInput.value.trim().toLowerCase();
+      if (query.length < 2) {
+        searchResults.style.display = 'none';
+        return;
+      }
+      const results = [];
+      for (const [code, prod] of Object.entries(CATALOG)) {
+        if (prod.name.toLowerCase().includes(query)) {
+          results.push({ code, ...prod });
+          if (results.length >= 10) break;
+        }
+      }
+      if (results.length > 0) {
+        searchResults.innerHTML = '';
+        results.forEach(item => {
+          const div = document.createElement('div');
+          div.textContent = `${item.name} — ${item.price} ₽ [${item.code}]`;
+          div.onclick = () => {
+            addToCart(item.code);
+            searchResults.style.display = 'none';
+          };
+          searchResults.appendChild(div);
+        });
+        searchResults.style.display = 'block';
+      } else {
+        searchResults.style.display = 'none';
+      }
+    });
+
+    // === Лояльность ===
+    document.getElementById('checkLoyalty').addEventListener('click', async () => {
+      const phone = document.getElementById('loyaltyPhone').value.trim();
+      if (!phone) return alert('Введите телефон');
+      if (!db) return alert('Firebase недоступен');
+      const snapshot = await db.ref('loyalty').orderByChild('phone').equalTo(phone).once('value');
+      if (snapshot.exists()) {
+        const data = Object.values(snapshot.val())[0];
+        currentUser = { ...data, phone };
+        favoriteSelected = !!data.favorite;
+        document.getElementById('loyaltyInfo').innerHTML = `
+          <p>Клиент: ${data.name}</p>
+          <p>Бонусов: ${data.bonus || 0}</p>
+          <p>Любимый препарат: ${data.favorite ? CATALOG[data.favorite]?.name || '—' : 'не выбран'}</p>
+          ${!favoriteSelected ? '<button id="selectFavBtn">Выбрать любимый</button>' : ''}
+        `;
+        if (!favoriteSelected) {
+          document.getElementById('selectFavBtn').onclick = () => {
+            document.getElementById('favoriteSelection').style.display = 'block';
+          };
+        }
+      } else {
+        const name = prompt('Клиент не найден. Введите ФИО для регистрации:');
+        const dob = prompt('Дата рождения (ДД.ММ.ГГГГ):');
+        if (name && dob) {
+          await db.ref('loyalty').push({ phone, name, dob, bonus: 0 });
+          currentUser = { phone, name, dob, bonus: 0 };
+          document.getElementById('loyaltyInfo').innerHTML = `<p>Карта создана для ${name}</p><button id="selectFavBtn">Выбрать любимый препарат</button>`;
+          document.getElementById('selectFavBtn').onclick = () => {
+            document.getElementById('favoriteSelection').style.display = 'block';
+          };
+        }
+      }
+    });
+
+    // Поиск для любимого препарата
+    document.getElementById('favSearch').addEventListener('input', () => {
+      const q = document.getElementById('favSearch').value.trim().toLowerCase();
+      const res = document.getElementById('favResults');
+      if (q.length < 2) {
+        res.innerHTML = '';
+        return;
+      }
+      const matches = Object.entries(CATALOG).filter(([code, p]) => p.name.toLowerCase().includes(q));
+      res.innerHTML = '';
+      matches.slice(0, 10).forEach(([code, p]) => {
+        const div = document.createElement('div');
+        div.textContent = `${p.name} — ${p.price} ₽`;
+        div.onclick = async () => {
+          if (!db || !currentUser) return;
+          await db.ref('loyalty').orderByChild('phone').equalTo(currentUser.phone).once('value')
+            .then(snap => {
+              const key = Object.keys(snap.val())[0];
+              db.ref(`loyalty/${key}`).update({ favorite: code });
+            });
+          currentUser.favorite = code;
+          favoriteSelected = true;
+          alert('Любимый препарат выбран!');
+          document.getElementById('favoriteSelection').style.display = 'none';
+        };
+        res.appendChild(div);
+      });
+    });
+
+    // === Архив ===
+    document.getElementById('searchArchive').addEventListener('click', async () => {
+      const query = document.getElementById('archiveQuery').value.trim();
+      if (!query || !db) return;
+      const resultsDiv = document.getElementById('archiveResults');
+      resultsDiv.innerHTML = '<p>Поиск...</p>';
+
+      let allData = [];
+      // Чеки
+      const receipts = await db.ref('receipts').once('value');
+      if (receipts.exists()) {
+        Object.values(receipts.val()).forEach(r => {
+          allData.push({ type: 'Чек', ...r });
+        });
+      }
+      // Онлайн-заказы
+      const orders = await db.ref('online-orders').once('value');
+      if (orders.exists()) {
+        Object.values(orders.val()).forEach(o => {
+          allData.push({ type: 'Онлайн-заказ', ...o });
+        });
+      }
+
+      const filtered = allData.filter(item => {
+        const text = JSON.stringify(item).toLowerCase();
+        return text.includes(query.toLowerCase());
+      });
+
+      resultsDiv.innerHTML = filtered.length ? '' : '<p>Ничего не найдено</p>';
+      filtered.forEach(item => {
+        const div = document.createElement('div');
+        div.innerHTML = `<strong>${item.type}</strong>: ${item.items || '—'} | ${new Date(item.timestamp).toLocaleString()}`;
+        resultsDiv.appendChild(div);
+      });
+    });
+
+    // === Остальные обработчики (аналогично предыдущей версии) ===
+    document.getElementById('priceCheckBtn').addEventListener('click', () => {
+      const val = mainInput.value.trim();
+      if (val.length === 13 && /^\d+$/.test(val) && CATALOG[val]) {
+        priceValueEl.textContent = CATALOG[val].price;
+        priceCheckEl.style.display = 'block';
+        setTimeout(() => priceCheckEl.style.display = 'none', 2500);
+      } else {
+        // поиск по названию не поддерживается для цены
+        alert('Введите 13-значный штрихкод');
+      }
+    });
+
+    document.getElementById('cancelItem').addEventListener('click', () => {
+      if (cart.length > 0) {
+        cart.pop();
+        updateCart();
+      }
+    });
+
+    document.getElementById('checkoutBtn').addEventListener('click', async () => {
+      if (cart.length === 0) return alert('Корзина пуста');
+      const total = parseFloat(totalEl.textContent);
+      let useBonus = 0;
+      if (currentUser && currentUser.bonus > 0) {
+        useBonus = parseInt(prompt(`Доступно бонусов: ${currentUser.bonus}. Сколько списать? (1 бонус = 1 рубль)`) || '0');
+        useBonus = Math.min(useBonus, currentUser.bonus, total);
+      }
+      const finalTotal = total - useBonus;
+      const paid = parseFloat(prompt(`К оплате: ${finalTotal} руб.\nВведите сумму от клиента:`));
+      if (!paid || paid < finalTotal) return alert('Недостаточно средств');
+      alert(`Сдача: ${(paid - finalTotal).toFixed(2)} руб.\nСпасибо за покупку!`);
+
+      // Сохранить чек
+      if (db) {
+        const receipt = {
+          items: cart,
+          total,
+          bonusUsed: useBonus,
+          phone: currentUser?.phone || null,
+          timestamp: firebase.database.ServerValue.TIMESTAMP
+        };
+        await db.ref('receipts').push(receipt);
+        // Обновить бонусы
+        if (currentUser) {
+          const earned = Math.floor(total * 0.05);
+          const newBonus = (currentUser.bonus || 0) - useBonus + earned;
+          await db.ref('loyalty').orderByChild('phone').equalTo(currentUser.phone).once('value')
+            .then(snap => {
+              const key = Object.keys(snap.val())[0];
+              db.ref(`loyalty/${key}`).update({ bonus: newBonus });
+            });
+        }
+      }
+      cart = [];
+      updateCart();
+      barcodeDisplay.style.display = 'none';
+    });
+
+    document.getElementById('generateBarcodeBtn').addEventListener('click', () => {
+      const code = generateEAN13("2000000");
+      generateBarcodeImage(code);
+    });
+
+    // Переключение форм
+    document.getElementById('onlineOrderBtn').onclick = () => onlineOrderForm.style.display = onlineOrderForm.style.display === 'none' ? 'block' : 'none';
+    document.getElementById('loyaltyBtn').onclick = () => loyaltyForm.style.display = loyaltyForm.style.display === 'none' ? 'block' : 'none';
+    document.getElementById('archiveBtn').onclick = () => archiveForm.style.display = archiveForm.style.display === 'none' ? 'block' : 'none';
+
+    // Отправка онлайн-заказа (аналогично)
+    document.getElementById('submitOrder').addEventListener('click', async () => {
+      const name = document.getElementById('clientName').value.trim();
+      const phone = document.getElementById('clientPhone').value.trim();
+      const items = document.getElementById('orderItems').value.trim();
+      if (!name || !phone || !items) return alert('Заполните все поля');
+      if (!db) return alert('Firebase недоступен');
+      await db.ref('online-orders').push({ name, phone, items, status: 'новый', timestamp: firebase.database.ServerValue.TIMESTAMP });
+      document.getElementById('orderStatus').textContent = '✅ Заказ отправлен!';
+      setTimeout(() => onlineOrderForm.style.display = 'none', 2000);
+    });
+
+    // Горячие клавиши
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'F2') {
+        e.preventDefault();
+        document.getElementById('generateBarcodeBtn').click();
+      }
+      if (e.altKey && e.key === ' ') {
+        e.preventDefault();
+        document.getElementById('priceCheckBtn').click();
+      }
+    });
+  </script>
+</body>
+</html>
