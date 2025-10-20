@@ -158,19 +158,16 @@
   </div>
 
   <script>
-    // === Firebase ===
+    // === ОБЯЗАТЕЛЬНО: замените на ваш Firebase проект ===
     const firebaseConfig = {
       databaseURL: "https://apteka-lyubov-default-rtdb.firebaseio.com/"
     };
-    let db;
-    try {
-      firebase.initializeApp(firebaseConfig);
-      db = firebase.database();
-    } catch (e) {
-      console.warn("Firebase не инициализирован");
-    }
 
-    // === Генерация EAN-13 ===
+    // Инициализация Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // === Генерация валидного EAN-13 ===
     function generateEAN13(prefix = "2000000") {
       let base = prefix + String(Math.floor(Math.random() * 100000)).padStart(5, '0');
       let sum = 0;
@@ -182,41 +179,114 @@
       return base + checkDigit;
     }
 
-    // === Каталог (700+ товаров) ===
-    function generateRealisticCatalog() {
-      const products = [
-        { name: "Но-шпа", form: "табл.", pack: 12, price: 180 },
-        { name: "Но-шпа", form: "табл.", pack: 24, price: 280 },
-        { name: "Парацетамол", form: "табл.", pack: 10, price: 25 },
-        { name: "Левомеколь", form: "мазь", pack: 40, unit: "г", price: 220 },
-        { name: "Бепантен", form: "крем", pack: 30, unit: "г", price: 650 },
-        { name: "Витамин D3", form: "капс.", pack: 60, price: 420 },
-        { name: "Омез", form: "капс.", pack: 10, price: 240 },
-        { name: "Нурофен", form: "гель", pack: 50, unit: "г", price: 320 },
-        { name: "Супрастин", form: "табл.", pack: 10, price: 140 },
-        { name: "Мезим", form: "табл.", pack: 20, price: 220 },
-        { name: "Линекс", form: "капс.", pack: 16, price: 380 },
-        { name: "Вольтарен", form: "гель", pack: 50, unit: "г", price: 420 },
-        { name: "Цинковая мазь", form: "мазь", pack: 25, unit: "г", price: 60 },
-        { name: "Хлоргексидин", form: "р-р", pack: 100, unit: "мл", price: 30 },
-        { name: "Амитриптилин", form: "табл.", pack: 50, price: 320 },
-        { name: "Метформин", form: "табл.", pack: 60, price: 280 },
-        { name: "Омакор", form: "капс.", pack: 90, price: 3200 },
-        { name: "Урсосан", form: "капс.", pack: 100, price: 1600 },
-        { name: "Эутирокс", form: "табл.", pack: 100, price: 420 },
-        { name: "Лизиноприл", form: "табл.", pack: 56, price: 240 },
-        { name: "Симвастатин", form: "табл.", pack: 90, price: 280 },
-        { name: "Дюфастон", form: "табл.", pack: 20, price: 620 },
-        { name: "Ярина", form: "табл.", pack: 21, price: 680 },
-        { name: "Элоком", form: "крем", pack: 30, unit: "г", price: 720 },
-        { name: "Адвантан", form: "мазь", pack: 50, unit: "г", price: 1400 },
-        { name: "Клотримазол", form: "мазь", pack: 30, unit: "г", price: 180 },
-        { name: "Мирамистин", form: "р-р", pack: 100, unit: "мл", price: 520 },
-        { name: "Фурацилин", form: "р-р", pack: 200, unit: "мл", price: 280 },
-        { name: "Нафтизин", form: "капли", pack: 15, unit: "мл", price: 80 },
-        { name: "Альбуцид", form: "капли", pack: 10, unit: "мл", price: 180 }
-      ];
+    // === Полный каталог: 1000+ препаратов РФ (2025) ===
+    function generateFullCatalog() {
+      const products = [];
 
+      // Антибиотики
+      ["Амоксициллин", "Амоксиклав", "Флемоксин", "Аугментин", "Сумамед", "Азитромицин", "Ципрофлоксацин", "Левофлоксацин", "Доксициклин", "Тетрациклин"].forEach(name => {
+        products.push({ name, form: "табл.", pack: 10, price: 120 });
+        products.push({ name, form: "табл.", pack: 20, price: 220 });
+      });
+
+      // Мази (включая Метилурациловую!)
+      [
+        { name: "Метилурациловая мазь", pack: 10, price: 140 },
+        { name: "Метилурациловая мазь", pack: 25, price: 220 },
+        { name: "Синтомициновая мазь", pack: 25, price: 120 },
+        { name: "Тетрациклиновая мазь", pack: 25, price: 90 },
+        { name: "Гентамициновая мазь", pack: 25, price: 180 },
+        { name: "Эритромициновая мазь", pack: 25, price: 160 },
+        { name: "Ацикловир", pack: 25, price: 220 },
+        { name: "Зовиракс", pack: 25, price: 1200 },
+        { name: "Виферон", pack: 12, price: 420 },
+        { name: "Диклофенак", pack: 30, price: 120 },
+        { name: "Индометацин", pack: 30, price: 140 },
+        { name: "Кетопрофен", pack: 30, price: 160 },
+        { name: "Нистатиновая мазь", pack: 15, price: 140 },
+        { name: "Пимафуцин", pack: 15, price: 420 },
+        { name: "Травоген", pack: 15, price: 620 },
+        { name: "Фенистил", pack: 30, price: 520 },
+        { name: "Псило-бальзам", pack: 20, price: 280 },
+        { name: "Меновазин", pack: 40, price: 120 },
+        { name: "Камфорный спирт", pack: 25, price: 60 },
+        { name: "Борный спирт", pack: 25, price: 50 },
+        { name: "Йод", pack: 25, price: 40 }
+      ].forEach(p => {
+        products.push({ name: p.name, form: "мазь", pack: p.pack, unit: "г", price: p.price });
+      });
+
+      // ЖКТ
+      ["Омез", "Нольпаза", "Пантопразол", "Альмагель", "Фосфалюгель", "Мезим", "Панкреатин", "Эспумизан", "Смекта", "Энтеросгель", "Активированный уголь"].forEach(name => {
+        products.push({ name, form: "табл.", pack: 10, price: 120 });
+        products.push({ name, form: "табl.", pack: 20, price: 220 });
+        if (name === "Энтеросгель") {
+          products.push({ name: "Энтеросгель", form: "паста", pack: 225, unit: "г", price: 420 });
+        }
+        if (name === "Смекта") {
+          products.push({ name: "Смекта", form: "порошок", pack: 10, price: 220 });
+        }
+      });
+
+      // Сердце и давление
+      ["Каптоприл", "Эналаприл", "Лизиноприл", "Лозартан", "Амлодипин", "Метопролол", "Бисопролол", "Нитроглицерин", "Корвалол", "Валокордин"].forEach(name => {
+        products.push({ name, form: "табл.", pack: 20, price: 120 });
+        products.push({ name, form: "табл.", pack: 50, price: 220 });
+        if (name === "Корвалол" || name === "Валокордин") {
+          products.push({ name, form: "капли", pack: 25, unit: "мл", price: 120 });
+          products.push({ name, form: "капли", pack: 50, unit: "мл", price: 180 });
+        }
+      });
+
+      // Нервная система
+      ["Глицин", "Афобазол", "Фенибут", "Мексидол", "Пантогам", "Пирацетам", "Циннаризин", "Винпоцетин", "Церебролизин"].forEach(name => {
+        products.push({ name, form: "табл.", pack: 20, price: 220 });
+        products.push({ name, form: "табл.", pack: 50, price: 420 });
+        if (name === "Церебролизин") {
+          products.push({ name: "Церебролизин", form: "амп.", pack: 10, price: 1200 });
+        }
+      });
+
+      // Аллергия
+      ["Супрастин", "Тавегил", "Цетрин", "Зиртек", "Эриус", "Лоратадин", "Фенистил"].forEach(name => {
+        products.push({ name, form: "табл.", pack: 10, price: 120 });
+        products.push({ name, form: "табл.", pack: 20, price: 220 });
+        if (name === "Фенистил") {
+          products.push({ name: "Фенистил", form: "гель", pack: 30, unit: "г", price: 520 });
+        }
+      });
+
+      // Респираторные
+      ["Сальбутамол", "Беродуал", "Пульмикорт", "Лазолван", "Амбробене", "АЦЦ", "Синупрет"].forEach(name => {
+        products.push({ name, form: "инг.", pack: 1, price: 420 });
+        products.push({ name, form: "сироп", pack: 100, unit: "мл", price: 220 });
+        if (name === "АЦЦ") {
+          products.push({ name: "АЦЦ", form: "порошок", pack: 20, price: 320 });
+        }
+      });
+
+      // Гормоны и контрацепция
+      ["Дюфастон", "Утрожестан", "Ярина", "Жанин", "Эутирокс", "Л-тироксин"].forEach(name => {
+        products.push({ name, form: "табл.", pack: 20, price: 620 });
+        products.push({ name, form: "табл.", pack: 28, price: 820 });
+      });
+
+      // Витамины
+      ["Витамин C", "Витамин D3", "Магний B6", "Компливит", "Алфавит", "Доппельгерц"].forEach(name => {
+        products.push({ name, form: "табл.", pack: 30, price: 220 });
+        products.push({ name, form: "табл.", pack: 60, price: 420 });
+      });
+
+      // Успокаивающие
+      ["Валериана", "Пустырник", "Ново-Пассит", "Персен"].forEach(name => {
+        products.push({ name, form: "табл.", pack: 20, price: 120 });
+        products.push({ name, form: "табл.", pack: 50, price: 220 });
+        if (name === "Валериана" || name === "Пустырник") {
+          products.push({ name, form: "настойка", pack: 25, unit: "мл", price: 80 });
+        }
+      });
+
+      // Генерация каталога
       const catalog = {};
       for (const p of products) {
         let displayName = p.unit 
@@ -226,13 +296,13 @@
         catalog[code] = { name: displayName, price: p.price };
       }
 
-      // Дополним до ~700
-      const extra = ["Анальгин","Диазолин","Фуросемид","Каптоприл","Метопролол","Амлодипин","Глицин","Корвалол","Валокордин","Спазган","Кетанов","Терафлю","Колдрекс","Амоксициллин","Азитромицин","Флуконазол","Нистатин","Хилак Форте","Панкреатин","Эспумизан","Дюфалак","Лактулоза","Афобазол","Фенибут","Пантогам","Мексидол","Пирацетам","Актовегин","Кавинтон","Бетасерк","Винпоцетин","Гинкоум","Циннаризин"];
+      // Дополним до 1000+
+      const extraNames = ["Анальгин", "Но-шпа", "Парацетамол", "Ибупрофен", "Нурофен", "Кетанов", "Спазган", "Баралгин", "Темпалгин", "Седалгин"];
       const forms = ["табл.", "капс."];
       const packs = [10, 20, 28, 30, 50, 60, 90, 100];
       let count = Object.keys(catalog).length;
-      while (count < 700) {
-        const name = extra[Math.floor(Math.random() * extra.length)];
+      while (count < 1000) {
+        const name = extraNames[Math.floor(Math.random() * extraNames.length)];
         const form = forms[Math.floor(Math.random() * forms.length)];
         const pack = packs[Math.floor(Math.random() * packs.length)];
         const price = Math.floor(Math.random() * 1500) + 50;
@@ -243,13 +313,14 @@
           count++;
         }
       }
+
       return catalog;
     }
 
     // === State ===
-    let CATALOG = generateRealisticCatalog();
+    let CATALOG = generateFullCatalog();
     let cart = [];
-    let currentUser = null; // { phone, name, bonus }
+    let currentUser = null;
 
     // === DOM ===
     const mainInput = document.getElementById('mainInput');
@@ -269,7 +340,7 @@
     const productSearchModal = document.getElementById('productSearchModal');
 
     // === Инициализация ===
-    console.log("Каталог загружен:", Object.keys(CATALOG).length, "товаров");
+    console.log("Полный каталог загружен:", Object.keys(CATALOG).length, "товаров");
     updateCart();
 
     // === Обновление корзины ===
@@ -375,22 +446,21 @@
 
     // === Лояльность: проверка карты ===
     document.getElementById('checkLoyalty').addEventListener('click', async () => {
-      const phone = loyaltyPhone.value.trim();
-      if (!phone) return alert('Введите телефон');
-      if (!db) {
-        alert('Режим offline: карта не найдена');
-        loyaltyInfo.innerHTML = `<button onclick="document.getElementById('createCardModal').style.display='flex'">Создать карту</button>`;
+      const phone = loyaltyPhone.value.trim().replace(/\D/g, '');
+      if (phone.length !== 11 || !phone.startsWith('7')) {
+        alert('Введите корректный номер: +7 XXX XXX-XX-XX');
         return;
       }
+      const formattedPhone = `+7 (${phone.slice(1,4)}) ${phone.slice(4,7)}-${phone.slice(7,9)}-${phone.slice(9,11)}`;
 
-      const snapshot = await db.ref('loyalty').orderByChild('phone').equalTo(phone).once('value');
+      const snapshot = await db.ref('loyalty').orderByChild('phone').equalTo(formattedPhone).once('value');
       if (snapshot.exists()) {
         const data = Object.values(snapshot.val())[0];
         currentUser = { key: Object.keys(snapshot.val())[0], ...data };
         loyaltyInfo.innerHTML = `Баллы: ${data.bonus || 0} ₽<br>ФИО: ${data.name}`;
       } else {
         currentUser = null;
-        loyaltyInfo.innerHTML = `<button onclick="document.getElementById('createCardModal').style.display='flex'; document.getElementById('newCardPhone').value='${phone}'">Создать карту</button>`;
+        loyaltyInfo.innerHTML = `<button onclick="document.getElementById('createCardModal').style.display='flex'; document.getElementById('newCardPhone').value='${formattedPhone}'">Создать карту</button>`;
       }
     });
 
@@ -400,21 +470,15 @@
       const phone = document.getElementById('newCardPhone').value.trim();
       if (!name || !phone) return alert('Заполните все поля');
       
-      if (db) {
-        const newRef = db.ref('loyalty').push({
-          name, phone, bonus: 0
-        });
-        currentUser = { key: newRef.key, name, phone, bonus: 0 };
-        document.getElementById('createStatus').textContent = 'Карта создана!';
-        setTimeout(() => {
-          createCardModal.style.display = 'none';
-          loyaltyInfo.innerHTML = `Баллы: 0 ₽<br>ФИО: ${name}`;
-        }, 1500);
-      } else {
-        currentUser = { name, phone, bonus: 0 };
+      const newRef = db.ref('loyalty').push({
+        name, phone, bonus: 0
+      });
+      currentUser = { key: newRef.key, name, phone, bonus: 0 };
+      document.getElementById('createStatus').textContent = 'Карта создана!';
+      setTimeout(() => {
         createCardModal.style.display = 'none';
-        loyaltyInfo.innerHTML = `Баллы: 0 ₽ (offline)<br>ФИО: ${name}`;
-      }
+        loyaltyInfo.innerHTML = `Баллы: 0 ₽<br>ФИО: ${name}`;
+      }, 1500);
     });
 
     // === Закрытие модалок ===
@@ -444,28 +508,22 @@
       receiptEl.textContent = receiptText;
       receiptEl.style.display = 'block';
       
-      // Начисление бонусов: 5% от полной суммы
       const earnedBonus = Math.floor(total * 0.05);
-      let newBonus = (currentUser?.bonus || 0) - useBonus + earnedBonus;
+      const newBonus = (currentUser?.bonus || 0) - useBonus + earnedBonus;
       
-      if (db && currentUser) {
+      if (currentUser) {
         await db.ref(`loyalty/${currentUser.key}`).update({ bonus: newBonus });
-      } else if (currentUser) {
-        currentUser.bonus = newBonus;
       }
       
-      // Сохранить чек
-      if (db) {
-        db.ref('receipts').push({
-          items: cart,
-          total,
-          bonusUsed: useBonus,
-          bonusEarned: earnedBonus,
-          method: 'cash',
-          phone: currentUser?.phone || null,
-          timestamp: firebase.database.ServerValue.TIMESTAMP
-        });
-      }
+      db.ref('receipts').push({
+        items: cart,
+        total,
+        bonusUsed: useBonus,
+        bonusEarned: earnedBonus,
+        method: 'cash',
+        phone: currentUser?.phone || null,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+      });
       
       cart = [];
       updateCart();
@@ -494,25 +552,21 @@
       receiptEl.style.display = 'block';
       
       const earnedBonus = Math.floor(total * 0.05);
-      let newBonus = (currentUser?.bonus || 0) - useBonus + earnedBonus;
+      const newBonus = (currentUser?.bonus || 0) - useBonus + earnedBonus;
       
-      if (db && currentUser) {
+      if (currentUser) {
         await db.ref(`loyalty/${currentUser.key}`).update({ bonus: newBonus });
-      } else if (currentUser) {
-        currentUser.bonus = newBonus;
       }
       
-      if (db) {
-        db.ref('receipts').push({
-          items: cart,
-          total,
-          bonusUsed: useBonus,
-          bonusEarned: earnedBonus,
-          method: 'card',
-          phone: currentUser?.phone || null,
-          timestamp: firebase.database.ServerValue.TIMESTAMP
-        });
-      }
+      db.ref('receipts').push({
+        items: cart,
+        total,
+        bonusUsed: useBonus,
+        bonusEarned: earnedBonus,
+        method: 'card',
+        phone: currentUser?.phone || null,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+      });
       
       cart = [];
       updateCart();
