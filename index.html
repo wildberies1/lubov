@@ -19,12 +19,11 @@
     }
     input, button, select { padding: 10px; font-size: 16px; border: 1px solid #bdc3c7; border-radius: 4px; }
     input { flex: 1; min-width: 220px; }
-    input:focus { outline: 2px solid #3498db; }
     button { cursor: pointer; background: #3498db; color: white; border: none; }
     button:hover { background: #2980b9; }
     button.alt { background: #9b59b6; }
     button.f2 { background: #2ecc71; }
-    button.loyalty { background: #f39c12; }
+    button.print { background: #e67e22; }
     .cart {
       background: white; border: 1px solid #ecf0f1; border-radius: 6px;
       padding: 12px; margin-bottom: 16px; max-height: 350px; overflow-y: auto;
@@ -37,6 +36,10 @@
     .cart-item-info { flex: 1; }
     .cart-item-controls { display: flex; gap: 6px; }
     .cart-item-qty { width: 60px; text-align: center; }
+    .stock-status { font-size: 12px; color: #7f8c8d; margin-top: 2px; }
+    .in-stock { color: #27ae60; }
+    .low-stock { color: #f39c12; }
+    .out-of-stock { color: #e74c3c; }
     .total {
       font-size: 20px; font-weight: bold; text-align: right;
       margin: 12px 0; color: #27ae60;
@@ -56,15 +59,23 @@
     .barcode-display img {
       max-width: 100%; height: auto;
     }
-    .online-order, .loyalty-section, .archive-section, .search-results {
+    .online-order, .loyalty-section, .archive-section, .search-results, .f2-search, .recent-receipts {
       margin-top: 20px; padding: 16px; border-radius: 6px; display: none;
     }
     .online-order { border: 1px dashed #8e44ad; background: #f9f0ff; }
     .loyalty-section { border: 1px solid #f39c12; background: #fff8e1; }
     .archive-section { border: 1px solid #16a085; background: #e8f5f2; }
-    .search-results { border: 1px solid #3498db; background: #ebf5fb; }
-    .search-results div { padding: 6px; cursor: pointer; border-bottom: 1px solid #d6eaf8; }
-    .search-results div:hover { background: #d6eaf8; }
+    .recent-receipts { border: 1px solid #8e44ad; background: #f5f9ff; }
+    .search-results, .f2-search-results { 
+      border: 1px solid #3498db; background: #ebf5fb; 
+      max-height: 200px; overflow-y: auto;
+    }
+    .search-results div, .f2-search-results div { 
+      padding: 6px; cursor: pointer; border-bottom: 1px solid #d6eaf8; 
+    }
+    .search-results div:hover, .f2-search-results div:hover { 
+      background: #d6eaf8; 
+    }
     .loyalty-auto { margin-top: 10px; }
     .loyalty-info { margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 4px; }
     @media (max-width: 600px) {
@@ -86,7 +97,7 @@
     <div class="loyalty-auto" id="loyaltyAutoInfo"></div>
 
     <div class="input-area">
-      <input type="text" id="mainInput" placeholder="Штрихкод (13 цифр) или название препарата..." autocomplete="off" autofocus />
+      <input type="text" id="mainInput" placeholder="Штрихкод (13 цифр) или название препарата..." autocomplete="off" />
       <button class="alt" id="priceCheckBtn">Цена (Alt)</button>
     </div>
 
@@ -105,14 +116,30 @@
     <div class="actions">
       <button id="cancelItem">Отменить товар</button>
       <button id="checkoutBtn">Оплатить</button>
+      <button class="print" id="printReceiptBtn">Печать чека</button>
       <button class="f2" id="generateBarcodeBtn">Штрихкод (F2)</button>
+      <button id="recentReceiptsBtn">Последние чеки</button>
       <button id="onlineOrderBtn">Онлайн-заказ</button>
       <button id="archiveBtn">Архив</button>
+    </div>
+
+    <!-- Последние чеки -->
+    <div class="recent-receipts" id="recentReceipts">
+      <h3>Последние 5 чеков</h3>
+      <div id="recentReceiptsList"></div>
+    </div>
+
+    <!-- F2: выбор товара -->
+    <div class="f2-search" id="f2SearchForm">
+      <h3>Выберите препарат для генерации штрихкода</h3>
+      <input type="text" id="f2SearchInput" placeholder="Название препарата..." />
+      <div class="f2-search-results" id="f2SearchResults"></div>
     </div>
 
     <div class="barcode-display" id="barcodeDisplay">
       <h4>Сгенерированный штрихкод</h4>
       <img id="barcodeImage" src="" alt="Штрихкод" />
+      <div id="barcodeProductInfo" style="margin-top:8px; font-size:14px;"></div>
     </div>
 
     <div class="online-order" id="onlineOrderForm">
@@ -133,63 +160,42 @@
   </div>
 
   <script>
-    // === ЗВУКОВАЯ СИСТЕМА (Web Audio API) ===
+    // === ЗВУК ===
     let audioContext = null;
     function initAudio() {
-      if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      }
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
-
     function playSuccessBeep() {
-      if (document.hidden) return; // не играть в фоне
+      if (document.hidden) return;
       try {
         initAudio();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.frequency.value = 880; // A5 — яркий "пип"
-        oscillator.type = 'sine';
-        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.08);
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.08);
-      } catch (e) {
-        console.warn("Звук недоступен:", e);
-      }
+        const o = audioContext.createOscillator();
+        const g = audioContext.createGain();
+        o.connect(g); g.connect(audioContext.destination);
+        o.frequency.value = 880; o.type = 'sine';
+        g.gain.setValueAtTime(0.1, audioContext.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.08);
+        o.start(); o.stop(audioContext.currentTime + 0.08);
+      } catch (e) { console.warn("Звук недоступен"); }
     }
-
     function playErrorBeep() {
       if (document.hidden) return;
       try {
         initAudio();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.frequency.value = 220; // A3 — низкий "бип"
-        oscillator.type = 'sine';
-        gainNode.gain.setValueAtTime(0.08, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.15);
-      } catch (e) {
-        console.warn("Звук недоступен:", e);
-      }
+        const o = audioContext.createOscillator();
+        const g = audioContext.createGain();
+        o.connect(g); g.connect(audioContext.destination);
+        o.frequency.value = 220; o.type = 'sine';
+        g.gain.setValueAtTime(0.08, audioContext.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+        o.start(); o.stop(audioContext.currentTime + 0.15);
+      } catch (e) { console.warn("Звук недоступен"); }
     }
 
-    // === Firebase Init ===
-    const firebaseConfig = {
-      databaseURL: "https://apteka-lyubov-default-rtdb.firebaseio.com/"
-    };
+    // === Firebase ===
+    const firebaseConfig = { databaseURL: "https://apteka-lyubov-default-rtdb.firebaseio.com/" };
     let db;
-    try {
-      firebase.initializeApp(firebaseConfig);
-      db = firebase.database();
-    } catch (e) {
-      console.warn("Firebase не инициализирован");
-    }
+    try { firebase.initializeApp(firebaseConfig); db = firebase.database(); } catch (e) { console.warn("Firebase не инициализирован"); }
 
     // === Генерация EAN-13 ===
     function generateEAN13(prefix = "2000000") {
@@ -203,48 +209,17 @@
       return base + checkDigit;
     }
 
-    // === Генерация каталога (720+ препаратов) ===
+    // === Каталог с наличием ===
     function generatePharmacyCatalog(count = 720) {
-      const names = [
-        "Парацетамол","Ибупрофен","Аспирин","Но-шпа","Супрастин","Цетрин","Лоратадин",
-        "Омез","Альмагель","Энтеросгель","Анальгин","Диазолин","Фуросемид","Каптоприл",
-        "Метопролол","Амлодипин","Витамин C","Витамин D3","Магний B6","Глицин","Корвалол",
-        "Валокордин","Нитроглицерин","Спазган","Кетанов","Нурофен","Терафлю","Колдрекс",
-        "Аугментин","Амоксициллин","Азитромицин","Ципрофлоксацин","Флуконазол","Нистатин",
-        "Линекс","Хилак Форте","Мезим","Панкреатин","Эспумизан","Дюфалак","Лактулоза",
-        "Бисопролол","Эналаприл","Лизиноприл","Верошпирон","Конкор","Преднизолон",
-        "Дексаметазон","Гидрокортизон","Метформин","Инсулин","Левотироксин","Эутирокс",
-        "Кавинтон","Циннаризин","Пирацетам","Фенибут","Афобазол","Тенотен","Ново-Пассит",
-        "Валериана","Пустырник","Мелисса","Ромашка","Эхинацея","Иммунал","Арбидол",
-        "Кагоцел","Анаферон","Виферон","Генферон","Ацикловир","Валацикловир","Метронидазол",
-        "Орнидазол","Нимесулид","Мовалис","Диклофенак","Вольтарен","Ксефокам","Мидокалм",
-        "Сирдалуд","Баклофен","Нейромультивит","Комбилипен","Мильгамма","Актовегин",
-        "Церебролизин","Пирацетам","Фенотропил","Глиатилин","Цераксон","Кавинтон Форте",
-        "Бетасерк","Вестибо","Танакан","Гинкоум","Билобил","Трентал","Курантил",
-        "Кардиомагнил","Аспекард","Тромбо АСС","Клопидогрель","Варфарин","Ксарелто",
-        "Прадакса","Лосартан","Вальсартан","Телмисартан","Индапамид","Гидрохлортиазид",
-        "Амлодипин","Нифедипин","Верапамил","Дилтиазем","Атенолол","Бисопролол",
-        "Анальгин","Баралгин","Спазмалгон","Баралгин М","Темпалгин","Седалгин",
-        "Пенталгин","Нурофен Экспресс","Кеторол","Кетонал","Флексен","Долобене",
-        "Вольтарен Эмульгель","Диклофенак гель","Найз гель","Кетопрофен гель",
-        "Бепантен","Пантенол","Левомеколь","Солкосерил","Актовегин гель","Эплан",
-        "Мирамистин","Хлоргексидин","Фурацилин","Йод","Зелёнка","Перекись водорода",
-        "Активированный уголь","Смекта","Полисорб","Энтеросгель","Фосфалюгель","Ренни",
-        "Гастал","Маалокс","Омез Д","Нольпаза","Париет","Ультоп","Де-Нол","Вентер",
-        "Креон","Панзинорм","Фестал","Энзистал","Лактазар","Линекс Форте","Бифиформ",
-        "Аципол","Бифидумбактерин","Лактобактерин","Хилак Форте","Дюфалак","Форлакс",
-        "Гутталакс","Сенаде","Магния сульфат","Регидрон","Глюкосолан","Цитрагель",
-        "Витрум","Компливит","Алфавит","Супрадин","Берокка","Мульти-табс","Витамин Е",
-        "Омега-3","Коэнзим Q10","Лецитин","Глюкозамин","Хондроитин","Коллаген",
-        "Масло чёрного тмина","Прополис","Эхинацея П","Иммунал форте","Антигриппин",
-        "Фервекс","Ринза","Гриппферон","Интерферон","Оксолиновая мазь","Виферон мазь"
-      ];
+      const names = ["Парацетамол","Ибупрофен","Аспирин","Но-шпа","Супрастин","Цетрин","Лоратадин","Омез","Альмагель","Энтеросгель","Анальгин","Диазолин","Фуросемид","Каптоприл","Метопролол","Амлодипин","Витамин C","Витамин D3","Магний B6","Глицин","Корвалол","Валокордин","Нитроглицерин","Спазган","Кетанов","Нурофен","Терафлю","Колдрекс","Аугментин","Амоксициллин","Азитромицин","Ципрофлоксацин","Флуконазол","Нистатин","Линекс","Хилак Форте","Мезим","Панкреатин","Эспумизан","Дюфалак","Лактулоза","Бисопролол","Эналаприл","Лизиноприл","Верошпирон","Конкор","Преднизолон","Дексаметазон","Гидрокортизон","Метформин","Инсулин","Левотироксин","Эутирокс","Кавинтон","Циннаризин","Пирацетам","Фенибут","Афобазол","Тенотен","Ново-Пассит","Валериана","Пустырник","Мелисса","Ромашка","Эхинацея","Иммунал","Арбидол","Кагоцел","Анаферон","Виферон","Генферон","Ацикловир","Валацикловир","Метронидазол","Орнидазол","Нимесулид","Мовалис","Диклофенак","Вольтарен","Ксефокам","Мидокалм","Сирдалуд","Баклофен","Нейромультивит","Комбилипен","Мильгамма","Актовегин","Церебролизин","Пирацетам","Фенотропил","Глиатилин","Цераксон","Кавинтон Форте","Бетасерк","Вестибо","Танакан","Гинкоум","Билобил","Трентал","Курантил","Кардиомагнил","Аспекард","Тромбо АСС","Клопидогрель","Варфарин","Ксарелто","Прадакса","Лосартан","Вальсартан","Телмисартан","Индапамид","Гидрохлортиазид","Амлодипин","Нифедипин","Верапамил","Дилтиазем","Атенолол","Бисопролол","Анальгин","Баралгин","Спазмалгон","Баралгин М","Темпалгин","Седалгин","Пенталгин","Нурофен Экспресс","Кеторол","Кетонал","Флексен","Долобене","Вольтарен Эмульгель","Диклофенак гель","Найз гель","Кетопрофен гель","Бепантен","Пантенол","Левомеколь","Солкосерил","Актовегин гель","Эплан","Мирамистин","Хлоргексидин","Фурацилин","Йод","Зелёнка","Перекись водорода","Активированный уголь","Смекта","Полисорб","Энтеросгель","Фосфалюгель","Ренни","Гастал","Маалокс","Омез Д","Нольпаза","Париет","Ультоп","Де-Нол","Вентер","Креон","Панзинорм","Фестал","Энзистал","Лактазар","Линекс Форте","Бифиформ","Аципол","Бифидумбактерин","Лактобактерин","Хилак Форте","Дюфалак","Форлакс","Гутталакс","Сенаде","Магния сульфат","Регидрон","Глюкосолан","Цитрагель","Витрум","Компливит","Алфавит","Супрадин","Берокка","Мульти-табс","Витамин Е","Омега-3","Коэнзим Q10","Лецитин","Глюкозамин","Хондроитин","Коллаген","Масло чёрного тмина","Прополис","Эхинацея П","Иммунал форте","Антигриппин","Фервекс","Ринза","Гриппферон","Интерферон","Оксолиновая мазь","Виферон мазь"];
       const catalog = {};
       for (let i = 0; i < count; i++) {
         const name = names[Math.floor(Math.random() * names.length)] + " №" + (i + 1);
         const price = Math.floor(Math.random() * 2500) + 80;
         const code = generateEAN13("2000000");
-        catalog[code] = { name, price };
+        // Симуляция наличия
+        const stock = Math.random() > 0.1 ? (Math.random() > 0.3 ? 'in' : 'low') : 'out';
+        catalog[code] = { name, price, stock };
       }
       return catalog;
     }
@@ -254,7 +229,7 @@
     let cart = [];
     let currentUser = null;
     let loyaltyTimeout = null;
-    let inputFocusLocked = false;
+    let recentReceipts = [];
 
     // === DOM ===
     const mainInput = document.getElementById('mainInput');
@@ -268,42 +243,25 @@
     const priceValueEl = document.getElementById('priceValue');
     const barcodeDisplay = document.getElementById('barcodeDisplay');
     const barcodeImage = document.getElementById('barcodeImage');
+    const barcodeProductInfo = document.getElementById('barcodeProductInfo');
     const onlineOrderForm = document.getElementById('onlineOrderForm');
     const archiveForm = document.getElementById('archiveForm');
-
-    // === Фокус ===
-    function ensureInputFocus() {
-      if (inputFocusLocked) return;
-      if (document.activeElement !== mainInput) {
-        mainInput.focus();
-      }
-    }
-
-    setInterval(() => {
-      const formsOpen = onlineOrderForm.style.display === 'block' || archiveForm.style.display === 'block';
-      if (!formsOpen) {
-        ensureInputFocus();
-      }
-    }, 800);
-
-    document.addEventListener('focusin', (e) => {
-      if (e.target.classList.contains('cart-item-qty')) {
-        inputFocusLocked = true;
-      }
-    });
-    document.addEventListener('focusout', (e) => {
-      if (e.target.classList.contains('cart-item-qty')) {
-        setTimeout(() => {
-          inputFocusLocked = false;
-          ensureInputFocus();
-        }, 300);
-      }
-    });
+    const f2SearchForm = document.getElementById('f2SearchForm');
+    const f2SearchInput = document.getElementById('f2SearchInput');
+    const f2SearchResults = document.getElementById('f2SearchResults');
+    const recentReceiptsEl = document.getElementById('recentReceipts');
+    const recentReceiptsList = document.getElementById('recentReceiptsList');
 
     // === Инициализация ===
     console.log("Каталог загружен:", Object.keys(CATALOG).length, "препаратов");
     updateCart();
-    mainInput.focus();
+
+    // === Статус наличия ===
+    function getStockText(stock) {
+      if (stock === 'in') return '<span class="stock-status in-stock">В наличии</span>';
+      if (stock === 'low') return '<span class="stock-status low-stock">Заканчивается</span>';
+      return '<span class="stock-status out-of-stock">Нет в наличии</span>';
+    }
 
     // === Лояльность ===
     loyaltyPhoneAuto.addEventListener('input', () => {
@@ -358,6 +316,7 @@
           div.innerHTML = `
             <div class="cart-item-info">
               ${item.name} (${item.code})<br>
+              ${getStockText(item.stock)}<br>
               <small>${item.price} ₽ × ${item.qty} = ${subtotal} ₽</small>
             </div>
             <div class="cart-item-controls">
@@ -389,19 +348,22 @@
             const idx = e.target.dataset.index;
             cart[idx].qty += 1;
             updateCart();
-            playSuccessBeep(); // звук при нажатии "+"
+            playSuccessBeep();
           };
         });
       }
-      setTimeout(() => ensureInputFocus(), 100);
     }
 
     // === Добавление в корзину ===
     function addToCart(code) {
       if (!CATALOG[code]) {
-        playErrorBeep(); // ❌ звук ошибки
+        playErrorBeep();
         alert(`Препарат не найден`);
-        ensureInputFocus();
+        return;
+      }
+      if (CATALOG[code].stock === 'out') {
+        playErrorBeep();
+        alert(`Товар "${CATALOG[code].name}" отсутствует на складе!`);
         return;
       }
       const existing = cart.findIndex(item => item.code === code);
@@ -410,16 +372,20 @@
       } else {
         cart.push({ code, ...CATALOG[code], qty: 1 });
       }
-      playSuccessBeep(); // ✅ звук успеха
+      playSuccessBeep();
       updateCart();
       mainInput.value = '';
     }
 
-    // === Поиск по названию ===
+    // === Основной ввод ===
     mainInput.addEventListener('input', () => {
       const query = mainInput.value.trim().toLowerCase();
       if (query.length < 2) {
         searchResults.style.display = 'none';
+        const val = mainInput.value.trim();
+        if (val.length === 13 && /^\d+$/.test(val)) {
+          addToCart(val);
+        }
         return;
       }
       const results = [];
@@ -433,7 +399,7 @@
         searchResults.innerHTML = '';
         results.forEach(item => {
           const div = document.createElement('div');
-          div.textContent = `${item.name} — ${item.price} ₽ [${item.code}]`;
+          div.innerHTML = `${item.name} — ${item.price} ₽ [${item.code}]<br>${getStockText(item.stock)}`;
           div.onclick = () => {
             addToCart(item.code);
             searchResults.style.display = 'none';
@@ -443,6 +409,10 @@
         searchResults.style.display = 'block';
       } else {
         searchResults.style.display = 'none';
+        const val = mainInput.value.trim();
+        if (val.length === 13 && /^\d+$/.test(val)) {
+          addToCart(val);
+        }
       }
     });
 
@@ -458,10 +428,9 @@
         playErrorBeep();
         alert('Введите 13-значный штрихкод');
       }
-      ensureInputFocus();
     });
 
-    // === Отмена товара ===
+    // === Отмена ===
     document.getElementById('cancelItem').addEventListener('click', () => {
       if (cart.length === 0) return;
       const last = cart[cart.length - 1];
@@ -472,6 +441,41 @@
       }
       playSuccessBeep();
       updateCart();
+    });
+
+    // === Печать чека ===
+    document.getElementById('printReceiptBtn').addEventListener('click', () => {
+      if (cart.length === 0) return alert('Корзина пуста');
+      const printWindow = window.open('', '_blank');
+      const now = new Date().toLocaleString('ru-RU');
+      let itemsHtml = '';
+      let total = 0;
+      cart.forEach(item => {
+        const line = item.price * item.qty;
+        total += line;
+        itemsHtml += `<div>${item.name} (${item.qty} шт) — ${line} ₽</div>`;
+      });
+      const bonusEarned = Math.floor(total * 0.05);
+      printWindow.document.write(`
+        <html><head><title>Чек — Аптека «Любовь»</title>
+        <style>body{font-family:monospace; max-width:400px; margin:0 auto;}</style></head><body>
+        <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:10px;">
+          <h2>Аптека «Любовь»</h2>
+          <div>ИНН: 7701234567</div>
+          <div>г. Москва, ул. Здоровья, д. 10</div>
+          <div>${now}</div>
+        </div>
+        <div style="margin:15px 0;">${itemsHtml}</div>
+        <div style="border-top:1px dashed #000; padding-top:10px; font-weight:bold;">
+          ИТОГО: ${total} ₽
+        </div>
+        <div>Бонусов начислено: ${bonusEarned}</div>
+        <div style="margin-top:20px; text-align:center;">Спасибо за покупку!</div>
+        </body></html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => printWindow.print(), 500);
     });
 
     // === Оплата ===
@@ -492,15 +496,20 @@
       playSuccessBeep();
       alert(`Сдача: ${(paid - finalTotal).toFixed(2)} руб.\nСпасибо!`);
 
+      const receiptData = {
+        items: cart.map(i => ({...i})),
+        total,
+        bonusUsed: useBonus,
+        phone: currentUser?.phone || null,
+        timestamp: Date.now()
+      };
+
+      // Сохранить в Firebase
       if (db) {
-        const receipt = {
-          items: cart.map(i => ({...i})),
-          total,
-          bonusUsed: useBonus,
-          phone: currentUser?.phone || null,
+        await db.ref('receipts').push({
+          ...receiptData,
           timestamp: firebase.database.ServerValue.TIMESTAMP
-        };
-        await db.ref('receipts').push(receipt);
+        });
         if (currentUser) {
           const earned = Math.floor(total * 0.05);
           const newBonus = (currentUser.bonus || 0) - useBonus + earned;
@@ -511,36 +520,98 @@
             });
         }
       }
+
+      // Добавить в последние чеки
+      recentReceipts.unshift(receiptData);
+      if (recentReceipts.length > 5) recentReceipts.pop();
+
       cart = [];
       updateCart();
       barcodeDisplay.style.display = 'none';
       loyaltyPhoneAuto.value = '';
       currentUser = null;
       loyaltyAutoInfo.innerHTML = '';
-      ensureInputFocus();
     });
 
-    // === Генерация штрихкода ===
+    // === Последние чеки ===
+    document.getElementById('recentReceiptsBtn').addEventListener('click', () => {
+      recentReceiptsEl.style.display = recentReceiptsEl.style.display === 'none' ? 'block' : 'none';
+      if (recentReceiptsEl.style.display === 'block') {
+        if (recentReceipts.length === 0) {
+          recentReceiptsList.innerHTML = '<p>Нет чеков</p>';
+        } else {
+          recentReceiptsList.innerHTML = recentReceipts.map(r => {
+            const time = new Date(r.timestamp).toLocaleString();
+            const items = r.items.map(i => i.name).join(', ');
+            return `<div><strong>${time}</strong><br>Товары: ${items}<br>Итого: ${r.total} ₽</div><hr>`;
+          }).join('');
+        }
+      }
+    });
+
+    // === F2: генерация штрихкода ===
     document.getElementById('generateBarcodeBtn').addEventListener('click', () => {
-      const code = generateEAN13("2000000");
-      const url = `https://barcode.tec-it.com/barcode.ashx?data=${code}&code=EAN13&multiplebarcodes=false&translate-esc=on&unit=Fit&dpi=96`;
-      barcodeImage.src = url;
-      barcodeDisplay.style.display = 'block';
-      playSuccessBeep();
-      ensureInputFocus();
+      f2SearchForm.style.display = 'block';
+      f2SearchInput.focus();
     });
 
-    // === Переключение форм ===
-    document.getElementById('onlineOrderBtn').onclick = () => {
-      onlineOrderForm.style.display = onlineOrderForm.style.display === 'none' ? 'block' : 'none';
-      if (onlineOrderForm.style.display === 'none') ensureInputFocus();
-    };
-    document.getElementById('archiveBtn').onclick = () => {
-      archiveForm.style.display = archiveForm.style.display === 'none' ? 'block' : 'none';
-      if (archiveForm.style.display === 'none') ensureInputFocus();
-    };
+    f2SearchInput.addEventListener('input', () => {
+      const query = f2SearchInput.value.trim().toLowerCase();
+      if (query.length < 2) {
+        f2SearchResults.style.display = 'none';
+        return;
+      }
+      const results = [];
+      for (const [code, prod] of Object.entries(CATALOG)) {
+        if (prod.name.toLowerCase().includes(query)) {
+          results.push({ code, ...prod });
+          if (results.length >= 15) break;
+        }
+      }
+      if (results.length > 0) {
+        f2SearchResults.innerHTML = '';
+        results.forEach(item => {
+          const div = document.createElement('div');
+          div.innerHTML = `${item.name} — ${item.price} ₽<br>${getStockText(item.stock)}`;
+          div.onclick = () => {
+            const newCode = generateEAN13("2000000");
+            const url = `https://barcode.tec-it.com/barcode.ashx?data=${newCode}&code=EAN13&multiplebarcodes=false&translate-esc=on&unit=Fit&dpi=96`;
+            barcodeImage.src = url;
+            barcodeProductInfo.textContent = `Товар: ${item.name} | Новый штрихкод: ${newCode}`;
+            barcodeDisplay.style.display = 'block';
+            f2SearchForm.style.display = 'none';
+            f2SearchInput.value = '';
+            playSuccessBeep();
+          };
+          f2SearchResults.appendChild(div);
+        });
+        f2SearchResults.style.display = 'block';
+      } else {
+        f2SearchResults.style.display = 'none';
+      }
+    });
 
-    // === Онлайн-заказ ===
+    // === Горячие клавиши ===
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'F2') {
+        e.preventDefault();
+        document.getElementById('generateBarcodeBtn').click();
+      }
+      if (e.key === 'F3') {
+        e.preventDefault();
+        mainInput.focus();
+        mainInput.select();
+      }
+      if (e.altKey && e.key === ' ') {
+        e.preventDefault();
+        document.getElementById('priceCheckBtn').click();
+      }
+    });
+
+    // === Остальные формы (онлайн-заказ, архив) — без изменений ===
+    document.getElementById('onlineOrderBtn').onclick = () => onlineOrderForm.style.display = onlineOrderForm.style.display === 'none' ? 'block' : 'none';
+    document.getElementById('archiveBtn').onclick = () => archiveForm.style.display = archiveForm.style.display === 'none' ? 'block' : 'none';
+
     document.getElementById('submitOrder').addEventListener('click', async () => {
       const name = document.getElementById('clientName').value.trim();
       const phone = document.getElementById('clientPhone').value.trim();
@@ -559,11 +630,9 @@
       setTimeout(() => {
         onlineOrderForm.style.display = 'none';
         document.getElementById('orderStatus').textContent = '';
-        ensureInputFocus();
       }, 2000);
     });
 
-    // === Архив ===
     document.getElementById('searchArchive').addEventListener('click', async () => {
       const query = document.getElementById('archiveQuery').value.trim();
       if (!query || !db) {
@@ -586,20 +655,6 @@
       });
       playSuccessBeep();
     });
-
-    // === Горячие клавиши ===
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'F2') {
-        e.preventDefault();
-        document.getElementById('generateBarcodeBtn').click();
-      }
-      if (e.altKey && e.key === ' ') {
-        e.preventDefault();
-        document.getElementById('priceCheckBtn').click();
-      }
-    });
-
-    ensureInputFocus();
   </script>
 </body>
 </html>
