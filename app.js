@@ -1,9 +1,9 @@
-// Импортируем функции из Firebase SDK (версия 10+)
+// Импорты Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getDatabase, ref, set, push, update, onValue, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getDatabase, ref, set, push, update, onValue, query, orderByChild, equalTo, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-// --- ТВОЯ КОНФИГУРАЦИЯ ---
+// --- КОНФИГУРАЦИЯ FIREBASE ---
 const firebaseConfig = {
     apiKey: "AIzaSyCWbNnlXSibndnckbY71hjRfAYqdmcIRbg",
     authDomain: "dock1-54ff9.firebaseapp.com",
@@ -19,7 +19,11 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-// --- Глобальные переменные состояния ---
+// --- КОНФИГУРАЦИЯ EMAILJS (ТВОИ ДАННЫЕ) ---
+const EMAILJS_SERVICE_ID = "service_f6c9bs4"; 
+const EMAILJS_TEMPLATE_ID = "template_5h1vyki"; 
+
+// --- Глобальные переменные ---
 let currentUser = null;
 let isAdmin = false;
 
@@ -50,7 +54,7 @@ window.switchAdminTab = (tab) => {
     document.getElementById('admin-news-view').style.display = tab === 'news' ? 'block' : 'none';
 };
 
-// === АВТОРИЗАЦИЯ ===
+// === АВТОРИЗАЦИЯ И РЕГИСТРАЦИЯ ===
 
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
@@ -93,11 +97,11 @@ document.getElementById('login-form').addEventListener('submit', (e) => {
     const email = document.getElementById('login-email').value;
     const pass = document.getElementById('login-password').value;
     signInWithEmailAndPassword(auth, email, pass)
-        .then(() => { toggleAuthModal(); alert('Вход выполнен!'); })
-        .catch(err => alert('Ошибка: ' + err.message));
+        .then(() => { toggleAuthModal(); alert('Добро пожаловать!'); })
+        .catch(err => alert('Ошибка входа: ' + err.message));
 });
 
-// Регистрация
+// Регистрация + Отправка письма через EmailJS
 document.getElementById('register-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const email = document.getElementById('reg-email').value;
@@ -106,18 +110,42 @@ document.getElementById('register-form').addEventListener('submit', (e) => {
 
     createUserWithEmailAndPassword(auth, email, pass)
         .then((cred) => {
-            // Сохраняем доп. данные в БД
+            // 1. Сохраняем данные в БД
             set(ref(db, 'users/' + cred.user.uid), {
                 email: email,
                 apartment: apt,
                 role: 'resident',
                 createdAt: Date.now()
             });
+
+            // 2. ОТПРАВЛЯЕМ ПИСЬМО ЧЕРЕЗ EMAILJS
+            const templateParams = {
+                to_email: email,
+                user_name: email.split('@')[0] // Берем имя до собачки
+            };
+
+            emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams)
+                .then(() => console.log('✅ Письмо Welcome отправлено!'))
+                .catch((err) => console.error('❌ Ошибка EmailJS:', err));
+
             toggleAuthModal();
-            alert('Регистрация успешна!');
+            alert(' Регистрация успешна! Проверьте почту.');
         })
-        .catch(err => alert('Ошибка: ' + err.message));
+        .catch(err => alert('Ошибка регистрации: ' + err.message));
 });
+
+// Восстановление пароля (Firebase)
+window.resetPassword = async () => {
+    const email = prompt("Введите ваш email для сброса пароля:");
+    if (!email) return;
+    
+    try {
+        await sendPasswordResetEmail(auth, email);
+        alert(`✅ Ссылка для сброса пароля отправлена на ${email}!\nПроверьте папку "Входящие" или "Спам".`);
+    } catch (error) {
+        alert("❌ Ошибка: " + error.message);
+    }
+};
 
 window.logoutUser = () => {
     signOut(auth).then(() => location.reload());
@@ -130,8 +158,8 @@ document.getElementById('request-form').addEventListener('submit', async (e) => 
     e.preventDefault();
     if (!currentUser) return;
 
-    // Получаем номер квартиры из БД
-    const userSnap = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js").then(m => m.get(ref(db, 'users/' + currentUser.uid)));
+    // Получаем номер квартиры
+    const userSnap = await get(ref(db, 'users/' + currentUser.uid));
     const userData = userSnap.val();
     const apt = userData ? userData.apartment : 'Unknown';
 
@@ -144,7 +172,7 @@ document.getElementById('request-form').addEventListener('submit', async (e) => 
         createdAt: Date.now()
     });
 
-    alert('Заявка отправлена!');
+    alert('Заявка успешно отправлена диспетчеру!');
     document.getElementById('request-form').reset();
     loadUserRequests();
 });
@@ -158,7 +186,7 @@ function loadUserRequests() {
     const q = query(ref(db, 'requests'), orderByChild('userId'), equalTo(currentUser.uid));
     onValue(q, (snapshot) => {
         list.innerHTML = '';
-        if (!snapshot.exists()) { list.innerHTML = '<li>Нет заявок</li>'; return; }
+        if (!snapshot.exists()) { list.innerHTML = '<li>У вас пока нет заявок.</li>'; return; }
         
         const items = [];
         snapshot.forEach(c => items.push({id: c.key, ...c.val()}));
@@ -169,7 +197,13 @@ function loadUserRequests() {
             li.style.listStyle = 'none';
             li.style.borderBottom = '1px solid #eee';
             li.style.padding = '10px 0';
-            li.innerHTML = `<b>${new Date(req.createdAt).toLocaleDateString()}</b>: ${req.type} <br> <small>${req.description}</small> <br> <span style="color:${req.status==='done'?'green':'orange'}">${req.status}</span>`;
+            
+            let statusColor = 'orange';
+            let statusText = 'Новая';
+            if(req.status === 'done') { statusColor = 'green'; statusText = 'Выполнено'; }
+            if(req.status === 'in_progress') { statusColor = 'blue'; statusText = 'В работе'; }
+
+            li.innerHTML = `<b>${new Date(req.createdAt).toLocaleDateString()}</b>: ${req.type} <br> <small>${req.description}</small> <br> <span style="color:${statusColor}; font-weight:bold">${statusText}</span>`;
             list.appendChild(li);
         });
     });
@@ -181,7 +215,7 @@ function loadAllRequests() {
     const tbody = document.querySelector('#all-requests-table tbody');
     onValue(ref(db, 'requests'), (snapshot) => {
         tbody.innerHTML = '';
-        if (!snapshot.exists()) { tbody.innerHTML = '<tr><td colspan="6">Пусто</td></tr>'; return; }
+        if (!snapshot.exists()) { tbody.innerHTML = '<tr><td colspan="6">Заявок пока нет</td></tr>'; return; }
 
         const items = [];
         snapshot.forEach(c => items.push({id: c.key, ...c.val()}));
@@ -190,21 +224,21 @@ function loadAllRequests() {
         items.forEach(req => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${req.id.substr(0,5)}</td>
-                <td>${req.apartment}</td>
+                <td>${req.id.substr(0,5)}...</td>
+                <td>Кв. ${req.apartment}</td>
                 <td>${req.type}</td>
                 <td>${req.description}</td>
                 <td style="color:${req.status==='done'?'green':'orange'}">${req.status}</td>
-                <td>${req.status !== 'done' ? `<button onclick="completeReq('${req.id}')">✅</button>` : '-'}</td>
+                <td>${req.status !== 'done' ? `<button onclick="completeReq('${req.id}')">✅ Выполнить</button>` : '-'}</td>
             `;
             tbody.appendChild(tr);
         });
     });
 }
 
-// Выполнить заявку (глобальная функция для HTML onclick)
+// Выполнить заявку
 window.completeReq = (id) => {
-    if(confirm('Выполнено?')) {
+    if(confirm('Отметить заявку как выполненную?')) {
         update(ref(db, 'requests/' + id), { status: 'done' });
     }
 };
@@ -217,7 +251,7 @@ document.getElementById('news-form').addEventListener('submit', (e) => {
         content: document.getElementById('news-content').value,
         createdAt: Date.now()
     });
-    alert('Опубликовано!');
+    alert('Новость опубликована!');
     document.getElementById('news-form').reset();
 });
 
@@ -226,7 +260,7 @@ function loadNews() {
     const container = document.getElementById('news-container');
     onValue(ref(db, 'news'), (snapshot) => {
         container.innerHTML = '';
-        if (!snapshot.exists()) { container.innerHTML = 'Нет новостей'; return; }
+        if (!snapshot.exists()) { container.innerHTML = 'Новостей пока нет.'; return; }
         
         const items = [];
         snapshot.forEach(c => items.push(c.val()));
@@ -236,7 +270,7 @@ function loadNews() {
             const div = document.createElement('div');
             div.className = 'card';
             div.style.marginBottom = '20px';
-            div.innerHTML = `<h3>${n.title}</h3><small>${new Date(n.createdAt).toLocaleDateString()}</small><p>${n.content}</p>`;
+            div.innerHTML = `<h3>${n.title}</h3><small style="color:#777">${new Date(n.createdAt).toLocaleDateString()}</small><p style="margin-top:10px">${n.content}</p>`;
             container.appendChild(div);
         });
     });
