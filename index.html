@@ -14,6 +14,7 @@
         <div class="logo">🏢 УК "Комфортный Дом"</div>
         <ul class="nav-links">
             <li><a href="#" onclick="showSection('home')">Главная</a></li>
+            <li><a href="#" onclick="showSection('services')">Услуги и Тарифы</a></li>
             <li><a href="#" onclick="showSection('news')">Новости</a></li>
             <li><a href="#" onclick="showSection('contacts')">Контакты</a></li>
             
@@ -29,12 +30,28 @@
         <header class="hero">
             <h1>Добро пожаловать домой!</h1>
             <p>Управляющая компания нового поколения</p>
-            <button onclick="showSection('contacts')" class="cta-btn">Вызвать мастера</button>
+            <button onclick="showSection('services')" class="cta-btn">Смотреть тарифы</button>
         </header>
         <div class="features">
             <div class="feature-card"><i class="fas fa-tools"></i><h3>Ремонт</h3><p>Быстрая подача заявок онлайн.</p></div>
-            <div class="feature-card"><i class="fas fa-file-invoice"></i><h3>Счета</h3><p>Прозрачная история платежей.</p></div>
+            <div class="feature-card"><i class="fas fa-wallet"></i><h3>Оплата</h3><p>Удобное пополнение баланса по QR.</p></div>
             <div class="feature-card"><i class="fas fa-bell"></i><h3>Уведомления</h3><p>Важные новости дома.</p></div>
+        </div>
+    </section>
+
+    <!-- Услуги и Тарифы -->
+    <section id="services" style="display:none;">
+        <h2>Тарифы ЖКХ</h2>
+        <div class="card full-width">
+            <table class="tariff-table">
+                <thead><tr><th>Услуга</th><th>Ед. изм.</th><th>Тариф (₽)</th></tr></thead>
+                <tbody>
+                    <tr><td>Холодная вода</td><td>куб. м</td><td>45.50</td></tr>
+                    <tr><td>Горячая вода</td><td>куб. м</td><td>210.00</td></tr>
+                    <tr><td>Электроэнергия</td><td>кВт·ч</td><td>6.50</td></tr>
+                    <tr><td>Отопление</td><td>Гкал</td><td>2500.00</td></tr>
+                </tbody>
+            </table>
         </div>
     </section>
 
@@ -48,9 +65,8 @@
     <section id="contacts" style="display:none;">
         <h2>Контакты</h2>
         <div class="contact-grid">
-            <div class="contact-item"><h3>📞 Диспетчер</h3><p class="phone">+7 (991) 656-51-83</p></div>
-            <div class="contact-item"><h3>🚑 Аварийная</h3><p class="phone">+7 (991) 656-51-83</p></div>
-            <div class="contact-item"><h3> Офис</h3><p>г. Балашиха, ул. Проспект Ленина, д. 32 А</p></div>
+            <div class="contact-item"><h3>📞 Диспетчер</h3><p class="phone">+7 (999) 123-45-67</p></div>
+            <div class="contact-item"><h3>🚑 Аварийная</h3><p class="phone">+7 (999) 765-43-21</p></div>
         </div>
     </section>
 
@@ -58,6 +74,14 @@
     <section id="dashboard" style="display:none;">
         <h2>Личный кабинет</h2>
         <div class="dashboard-grid">
+            <!-- Блок Баланса -->
+            <div class="card">
+                <h3>💰 Мой Баланс</h3>
+                <p class="bill-amount" id="user-balance-display">0.00 ₽</p>
+                <button class="pay-btn" onclick="openPaymentModal()">Пополнить по QR</button>
+            </div>
+
+            <!-- Подача заявки -->
             <div class="card">
                 <h3>Подать заявку</h3>
                 <form id="request-form">
@@ -66,21 +90,17 @@
                         <option value="water">Вода</option>
                         <option value="light">Электричество</option>
                         <option value="heat">Отопление</option>
-                        <option value="clean">Уборка</option>
                         <option value="other">Другое</option>
                     </select>
-                    <textarea id="req-desc" placeholder="Опишите проблему подробно..." required></textarea>
-                    <button type="submit">Отправить заявку</button>
+                    <textarea id="req-desc" placeholder="Опишите проблему..." required></textarea>
+                    <button type="submit">Отправить</button>
                 </form>
             </div>
-            <div class="card">
-                <h3>Мои заявки</h3>
-                <ul id="user-requests-list"></ul>
-            </div>
-            <div class="card">
-                <h3>Баланс лицевого счета</h3>
-                <p class="bill-amount">0.00 ₽</p>
-                <button class="pay-btn">Пополнить онлайн</button>
+
+            <!-- История операций (НОВОЕ) -->
+            <div class="card full-width">
+                <h3>📜 История операций</h3>
+                <ul id="transactions-list" style="list-style:none; padding:0;"></ul>
             </div>
         </div>
     </section>
@@ -89,8 +109,9 @@
     <section id="admin" style="display:none;">
         <h2>Панель администратора</h2>
         <div class="admin-tabs">
-            <button onclick="switchAdminTab('requests')">Заявки жителей</button>
-            <button onclick="switchAdminTab('news')">Добавить новость</button>
+            <button onclick="switchAdminTab('requests')">Заявки</button>
+            <button onclick="switchAdminTab('payments')">Платежи</button> <!-- НОВАЯ ВКЛАДКА -->
+            <button onclick="switchAdminTab('news')">Новости</button>
         </div>
 
         <div id="admin-requests-view">
@@ -100,57 +121,68 @@
             </table>
         </div>
 
+        <!-- Таблица платежей (НОВОЕ) -->
+        <div id="admin-payments-view" style="display:none;">
+            <h3>Запросы на пополнение</h3>
+            <table id="payments-table">
+                <thead><tr><th>Дата</th><th>Квартира</th><th>Сумма</th><th>Статус</th><th>Действие</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
         <div id="admin-news-view" style="display:none;">
             <h3>Новая новость</h3>
             <form id="news-form">
-                <input type="text" id="news-title" placeholder="Заголовок новости" required>
-                <textarea id="news-content" placeholder="Текст новости..." required></textarea>
+                <input type="text" id="news-title" placeholder="Заголовок" required>
+                <textarea id="news-content" placeholder="Текст" required></textarea>
                 <button type="submit">Опубликовать</button>
             </form>
         </div>
     </section>
 
-    <!-- Модальное окно входа/регистрации -->
+    <!-- Модальное окно Входа/Регистрации -->
     <div id="auth-modal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="toggleAuthModal()">&times;</span>
-            <h2 id="modal-title">Вход в систему</h2>
-            
-            <!-- Форма Входа -->
+            <h2 id="modal-title">Вход</h2>
             <form id="login-form">
                 <input type="email" id="login-email" placeholder="Email" required>
                 <input type="password" id="login-password" placeholder="Пароль" required>
                 <button type="submit">Войти</button>
-                
-                <!-- Кнопка восстановления пароля -->
-                <p style="text-align:center; margin-top:15px;">
-                    <a href="#" onclick="resetPassword()" style="font-size:0.9rem; color:#3498db; text-decoration:none;">Забыли пароль?</a>
-                </p>
-                
-                <p class="switch-auth">Нет аккаунта? <a href="#" onclick="toggleRegisterMode(true)">Зарегистрироваться</a></p>
+                <p style="text-align:center; margin-top:10px;"><a href="#" onclick="resetPassword()" style="font-size:0.9rem; color:#3498db;">Забыли пароль?</a></p>
+                <p class="switch-auth">Нет аккаунта? <a href="#" onclick="toggleRegisterMode(true)">Регистрация</a></p>
             </form>
-
-            <!-- Форма Регистрации -->
             <form id="register-form" style="display:none;">
                 <input type="email" id="reg-email" placeholder="Email" required>
-                <input type="password" id="reg-password" placeholder="Придумайте пароль" required>
-                <input type="text" id="reg-apartment" placeholder="Номер квартиры (например, 45)" required>
+                <input type="password" id="reg-password" placeholder="Пароль" required>
+                <input type="text" id="reg-apartment" placeholder="№ Квартиры" required>
                 <button type="submit">Зарегистрироваться</button>
                 <p class="switch-auth">Есть аккаунт? <a href="#" onclick="toggleRegisterMode(false)">Войти</a></p>
             </form>
         </div>
     </div>
 
-    <!-- Подключаем EmailJS С ТВОИМ КЛЮЧОМ -->
+    <!-- Модальное окно ОПЛАТЫ (НОВОЕ) -->
+    <div id="payment-modal" class="modal">
+        <div class="modal-content" style="text-align:center;">
+            <span class="close" onclick="closePaymentModal()">&times;</span>
+            <h2>Пополнение баланса</h2>
+            <p>Отсканируйте QR-код и переведите нужную сумму:</p>
+            
+            <!-- СЮДА ВСТАВЬ СВОЮ КАРТИНКУ QR КОДА -->
+            <img src="qr-code.png" alt="QR Code" style="width:200px; height:200px; margin: 20px 0; border: 1px solid #ddd;">
+            
+            <input type="number" id="pay-amount" placeholder="Введите сумму перевода (₽)" style="font-size:1.2rem; text-align:center;">
+            <button class="pay-btn" onclick="submitPaymentRequest()">Я оплатил, подтвердить</button>
+        </div>
+    </div>
+
+    <!-- EmailJS -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script type="text/javascript">
-       (function(){
-          // Твой Public Key из EmailJS
-          emailjs.init("FGgpu0ldkv3uv1u5n"); 
-       })();
+       (function(){ emailjs.init("FGgpu0ldkv3uv1u5n"); })();
     </script>
 
-    <!-- Подключаем наш основной скрипт как МОДУЛЬ -->
     <script type="module" src="app.js"></script>
 </body>
 </html>
